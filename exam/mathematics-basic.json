@@ -1,0 +1,68 @@
+[
+  {
+    "questionText": "What is 15 + 27?",
+    "type": "mcq",
+    "options": ["40", "42", "44", "46"],
+    "correctAnswer": 1,
+    "marks": 1
+  },
+  {
+    "questionText": "What is the square root of 64?",
+    "type": "mcq",
+    "options": ["6", "7", "8", "9"],
+    "correctAnswer": 2,
+    "marks": 1
+  },
+  {
+    "questionText": "Is 17 a prime number?",
+    "type": "tf",
+    "correctAnswer": true,
+    "marks": 1
+  },
+  {
+    "questionText": "What is 12 × 8?",
+    "type": "mcq",
+    "options": ["84", "92", "96", "104"],
+    "correctAnswer": 2,
+    "marks": 1
+  },
+  {
+    "questionText": "The sum of angles in a triangle is 180 degrees",
+    "type": "tf",
+    "correctAnswer": true,
+    "marks": 1
+  },
+  {
+    "questionText": "What is 144 ÷ 12?",
+    "type": "mcq",
+    "options": ["10", "11", "12", "13"],
+    "correctAnswer": 2,
+    "marks": 1
+  },
+  {
+    "questionText": "Solve for x: 2x + 5 = 15",
+    "type": "short",
+    "sampleAnswer": "x = 5",
+    "marks": 2
+  },
+  {
+    "questionText": "What is 25% of 80?",
+    "type": "mcq",
+    "options": ["15", "20", "25", "30"],
+    "correctAnswer": 1,
+    "marks": 1
+  },
+  {
+    "questionText": "The area of a circle is πr²",
+    "type": "tf",
+    "correctAnswer": true,
+    "marks": 1
+  },
+  {
+    "questionText": "What is the perimeter of a rectangle with length 8 and width 5?",
+    "type": "mcq",
+    "options": ["24", "26", "28", "30"],
+    "correctAnswer": 1,
+    "marks": 1
+  }
+]

@@ -1,0 +1,68 @@
+[
+  {
+    "questionText": "Which is the correct past tense of 'go'?",
+    "type": "mcq",
+    "options": ["goed", "went", "gone", "going"],
+    "correctAnswer": 1,
+    "marks": 1
+  },
+  {
+    "questionText": "A noun is a person, place, or thing",
+    "type": "tf",
+    "correctAnswer": true,
+    "marks": 1
+  },
+  {
+    "questionText": "Choose the correct sentence:",
+    "type": "mcq",
+    "options": ["She don't like pizza", "She doesn't like pizza", "She not like pizza", "She no like pizza"],
+    "correctAnswer": 1,
+    "marks": 1
+  },
+  {
+    "questionText": "What is a synonym for 'happy'?",
+    "type": "mcq",
+    "options": ["Sad", "Angry", "Joyful", "Tired"],
+    "correctAnswer": 2,
+    "marks": 1
+  },
+  {
+    "questionText": "An adjective describes a noun",
+    "type": "tf",
+    "correctAnswer": true,
+    "marks": 1
+  },
+  {
+    "questionText": "Write a sentence using the word 'beautiful'",
+    "type": "short",
+    "sampleAnswer": "The beautiful sunset painted the sky with vibrant colors",
+    "marks": 2
+  },
+  {
+    "questionText": "Which is the plural of 'child'?",
+    "type": "mcq",
+    "options": ["childs", "childes", "children", "child's"],
+    "correctAnswer": 2,
+    "marks": 1
+  },
+  {
+    "questionText": "A verb shows action or state of being",
+    "type": "tf",
+    "correctAnswer": true,
+    "marks": 1
+  },
+  {
+    "questionText": "Choose the correct article: '__ apple'",
+    "type": "mcq",
+    "options": ["a", "an", "the", "no article"],
+    "correctAnswer": 1,
+    "marks": 1
+  },
+  {
+    "questionText": "What is the opposite of 'hot'?",
+    "type": "mcq",
+    "options": ["warm", "cool", "cold", "freezing"],
+    "correctAnswer": 2,
+    "marks": 1
+  }
+]

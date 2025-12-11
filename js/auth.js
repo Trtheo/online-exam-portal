@@ -87,6 +87,15 @@ auth.onAuthStateChanged(async (user) => {
 });
 
 function logout() {
+    document.getElementById('logoutModal').classList.remove('hidden');
+}
+
+function hideLogoutModal() {
+    document.getElementById('logoutModal').classList.add('hidden');
+}
+
+function confirmLogout() {
+    hideLogoutModal();
     auth.signOut().then(() => {
         localStorage.removeItem('userRole');
         window.location.href = 'index.html';

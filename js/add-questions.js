@@ -155,3 +155,123 @@ async function deleteQuestion(questionId) {
 function goBack() {
     window.location.href = 'teacher-dashboard.html';
 }
+
+let importedQuestions = [];
+
+function showBulkImport() {
+    document.getElementById('bulkImportModal').classList.remove('hidden');
+}
+
+function hideBulkImport() {
+    document.getElementById('bulkImportModal').classList.add('hidden');
+    document.getElementById('csvFile').value = '';
+    document.getElementById('jsonData').value = '';
+    document.getElementById('importPreview').classList.add('hidden');
+    document.getElementById('importBtn').disabled = true;
+    importedQuestions = [];
+}
+
+function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const csv = e.target.result;
+        parseCSVData(csv);
+    };
+    reader.readAsText(file);
+}
+
+function parseCSVData(csv) {
+    const lines = csv.split('\n').filter(line => line.trim());
+    const questions = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(col => col.trim().replace(/^"|"$/g, ''));
+        
+        if (cols.length < 6) continue;
+        
+        const question = {
+            questionText: cols[0],
+            type: cols[1],
+            marks: parseInt(cols[cols.length - 1]) || 1
+        };
+        
+        if (question.type === 'mcq') {
+            question.options = [cols[2], cols[3], cols[4], cols[5]];
+            question.correctAnswer = parseInt(cols[6]) || 0;
+        } else if (question.type === 'tf') {
+            question.correctAnswer = cols[2].toLowerCase() === 'true';
+        } else if (question.type === 'short') {
+            question.sampleAnswer = cols[2] || '';
+        }
+        
+        questions.push(question);
+    }
+    
+    importedQuestions = questions;
+    showPreview();
+}
+
+function parseJsonData() {
+    try {
+        const jsonText = document.getElementById('jsonData').value;
+        const questions = JSON.parse(jsonText);
+        
+        if (!Array.isArray(questions)) {
+            alert('JSON must be an array of questions');
+            return;
+        }
+        
+        importedQuestions = questions;
+        showPreview();
+    } catch (error) {
+        alert('Invalid JSON format: ' + error.message);
+    }
+}
+
+function showPreview() {
+    const preview = document.getElementById('importPreview');
+    const previewList = document.getElementById('previewList');
+    const previewCount = document.getElementById('previewCount');
+    
+    if (importedQuestions.length === 0) {
+        preview.classList.add('hidden');
+        return;
+    }
+    
+    previewCount.textContent = importedQuestions.length;
+    
+    previewList.innerHTML = importedQuestions.map((q, index) => `
+        <div class="preview-question">
+            <strong>Q${index + 1}:</strong> ${q.questionText}<br>
+            <small>Type: ${q.type.toUpperCase()} | Marks: ${q.marks}</small>
+            ${q.options ? `<br><small>Options: ${q.options.join(', ')}</small>` : ''}
+        </div>
+    `).join('');
+    
+    preview.classList.remove('hidden');
+    document.getElementById('importBtn').disabled = false;
+}
+
+async function importQuestions() {
+    if (importedQuestions.length === 0) return;
+    
+    try {
+        const batch = db.batch();
+        
+        importedQuestions.forEach(question => {
+            const questionRef = db.collection('exams').doc(currentExamId)
+                .collection('questions').doc();
+            batch.set(questionRef, question);
+        });
+        
+        await batch.commit();
+        alert(`Successfully imported ${importedQuestions.length} questions!`);
+        hideBulkImport();
+        loadQuestions();
+    } catch (error) {
+        alert('Error importing questions: ' + error.message);
+    }
+}

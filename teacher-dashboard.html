@@ -5,41 +5,66 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teacher Dashboard - Online Exam Portal</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <!-- Header -->
     <header class="main-header">
         <div class="header-content">
-            <div class="logo">📚 ExamPortal</div>
+            <button class="hamburger-menu" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="logo"><i class="fas fa-graduation-cap"></i> ExamPortal</div>
             <div class="user-menu">
                 <div class="user-avatar" id="userAvatar">AT</div>
                 <div>
                     <div style="font-weight: 600; font-size: 14px;" id="teacherName">Loading...</div>
                     <div style="color: #64748b; font-size: 12px;">Teacher</div>
                 </div>
-                <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
+
             </div>
         </div>
     </header>
+
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" onclick="closeSidebar()"></div>
+    
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <ul class="sidebar-nav">
+            <li><a href="#" class="active" onclick="showDashboard()"><i class="fas fa-home nav-icon"></i>Dashboard</a></li>
+            <li><a href="#" onclick="showCreateExam()"><i class="fas fa-plus nav-icon"></i>Create Exam</a></li>
+            <li><a href="#" onclick="showExamList()"><i class="fas fa-list nav-icon"></i>My Exams</a></li>
+            <li><a href="#" onclick="showAllResultsView()"><i class="fas fa-chart-bar nav-icon"></i>All Results</a></li>
+            <li><a href="#" onclick="showLeaderboard()"><i class="fas fa-trophy nav-icon"></i>Leaderboard</a></li>
+            <li><a href="#" onclick="showProfile()"><i class="fas fa-user nav-icon"></i>Profile</a></li>
+            <li><a href="#" onclick="logout()"><i class="fas fa-sign-out-alt nav-icon"></i>Logout</a></li>
+        </ul>
+    </nav>
 
     <div class="container">
         <div class="dashboard">
             <!-- Stats Cards -->
             <div class="dashboard-stats">
                 <div class="stat-card">
-                    <div class="stat-icon exams">📝</div>
+                    <div class="stat-icon exams"><i class="fas fa-file-alt"></i></div>
                     <div class="stat-number" id="totalExams">0</div>
                     <div class="stat-label">Total Exams</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon students">👥</div>
+                    <div class="stat-icon students"><i class="fas fa-users"></i></div>
                     <div class="stat-number" id="totalStudents">0</div>
                     <div class="stat-label">Students Enrolled</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon submissions">📊</div>
+                    <div class="stat-icon submissions"><i class="fas fa-chart-line"></i></div>
                     <div class="stat-number" id="totalSubmissions">0</div>
                     <div class="stat-label">Submissions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon average"><i class="fas fa-percentage"></i></div>
+                    <div class="stat-number" id="averageScore">0%</div>
+                    <div class="stat-label">Average Score</div>
                 </div>
             </div>
 
@@ -51,13 +76,16 @@
                 <div class="section-content">
                     <div style="display: flex; gap: 16px; flex-wrap: wrap;">
                         <button class="btn btn-primary btn-lg" onclick="showCreateExam()">
-                            ➕ Create New Exam
+                            <i class="fas fa-plus"></i> Create New Exam
                         </button>
                         <button class="btn btn-outline btn-lg" onclick="showExamList()">
-                            📋 View All Exams
+                            <i class="fas fa-list"></i> View All Exams
                         </button>
                         <button class="btn btn-outline btn-lg" onclick="viewAllResults()">
-                            📈 View Results
+                            <i class="fas fa-chart-bar"></i> View Results
+                        </button>
+                        <button class="btn btn-outline btn-lg" onclick="showStudentManagement()">
+                            <i class="fas fa-users-cog"></i> Manage Students
                         </button>
                     </div>
                 </div>
@@ -68,7 +96,7 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h3>Create New Exam</h3>
-                        <button class="btn-icon" onclick="hideCreateExam()">✕</button>
+                        <button class="btn-icon" onclick="hideCreateExam()"><i class="fas fa-times"></i></button>
                     </div>
                     <form id="examForm">
                         <div class="modal-body">
@@ -112,14 +140,94 @@
                 <div class="section-header">
                     <h2 class="section-title">My Exams</h2>
                     <button class="btn btn-primary" onclick="showCreateExam()">
-                        ➕ New Exam
+                        <i class="fas fa-plus"></i> New Exam
                     </button>
                 </div>
                 <div class="section-content">
+                    <div class="filter-controls">
+                        <div class="filter-group">
+                            <label class="filter-label">Status</label>
+                            <select id="examStatusFilter" class="filter-select" onchange="filterExams()">
+                                <option value="">All Status</option>
+                                <option value="draft">Draft</option>
+                                <option value="published">Published</option>
+                                <option value="ended">Ended</option>
+                            </select>
+                        </div>
+                        <div class="search-container">
+                            <label class="filter-label">Search</label>
+                            <div style="position: relative;">
+                                <input type="text" id="examSearch" class="search-input" placeholder="Search by title or subject..." onkeyup="searchExams()">
+                                <button class="clear-search" onclick="clearSearch()" title="Clear search">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="filter-actions">
+                            <button class="btn btn-outline btn-sm" onclick="refreshExams()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                            <button class="clear-filters" onclick="clearFilters()"><i class="fas fa-times"></i> Clear</button>
+                        </div>
+                    </div>
+                    <div class="results-count" id="examResultsCount">Showing all exams</div>
                     <div id="examList" class="exam-grid">
                         <!-- Exams will be loaded here -->
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notification Toast -->
+    <div id="notificationToast" class="notification-toast hidden">
+        <div class="toast-content">
+            <i class="fas fa-check-circle toast-icon"></i>
+            <span class="toast-message">Action completed successfully!</span>
+        </div>
+    </div>
+    
+    <!-- Logout Confirmation Modal -->
+    <div id="logoutModal" class="modal hidden">
+        <div class="modal-content confirmation-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-sign-out-alt"></i> Confirm Logout</h3>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to logout?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="hideLogoutModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Account Confirmation Modal -->
+    <div id="deleteModal" class="modal hidden">
+        <div class="modal-content confirmation-modal">
+            <div class="modal-header danger">
+                <h3><i class="fas fa-exclamation-triangle"></i> Delete Account</h3>
+            </div>
+            <div class="modal-body">
+                <div class="warning-box">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>
+                        <h4>⚠️ WARNING: This action cannot be undone!</h4>
+                        <p>Deleting your account will permanently:</p>
+                        <ul>
+                            <li>Delete all your exams and questions</li>
+                            <li>Remove all student submissions</li>
+                            <li>Erase your account data completely</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>Enter your password to confirm:</label>
+                    <input type="password" id="deletePassword" placeholder="Current password" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="hideDeleteModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmDelete()"><i class="fas fa-trash"></i> Delete Account</button>
             </div>
         </div>
     </div>

@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Questions - Online Exam Portal</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Add Questions</h1>
+            <h1><i class="fas fa-question-circle"></i> Add Questions</h1>
         </header>
         
         <div class="dashboard">
@@ -18,11 +19,14 @@
                     <h2 id="examTitle">Loading...</h2>
                     <p>Questions: <span id="questionCount">0</span></p>
                 </div>
-                <button class="btn btn-danger" onclick="goBack()">Back to Dashboard</button>
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn btn-outline" onclick="showBulkImport()"><i class="fas fa-upload"></i> Bulk Import</button>
+                    <button class="btn btn-danger" onclick="goBack()"><i class="fas fa-arrow-left"></i> Back to Dashboard</button>
+                </div>
             </div>
             
             <div class="question-form">
-                <h3>Add New Question</h3>
+                <h3><i class="fas fa-plus-circle"></i> Add New Question</h3>
                 <form id="questionForm">
                     <div class="form-group">
                         <label>Question Text:</label>
@@ -72,13 +76,45 @@
                         <input type="number" id="questionMarks" value="1" min="1" required>
                     </div>
                     
-                    <button type="submit" class="btn btn-primary">Add Question</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Add Question</button>
                 </form>
             </div>
             
             <div class="questions-list">
-                <h3>Added Questions</h3>
+                <h3><i class="fas fa-list"></i> Added Questions</h3>
                 <div id="questionsList"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bulk Import Modal -->
+    <div id="bulkImportModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-upload"></i> Bulk Import Questions</h3>
+                <button class="btn-icon" onclick="hideBulkImport()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="import-options">
+                    <div class="import-method">
+                        <h4>Upload CSV File</h4>
+                        <input type="file" id="csvFile" accept=".csv" onchange="handleFileUpload(event)">
+                        <p class="help-text">CSV format: questionText,type,option1,option2,option3,option4,correctAnswer,marks</p>
+                    </div>
+                    <div class="import-method">
+                        <h4>Paste JSON Data</h4>
+                        <textarea id="jsonData" rows="8" placeholder='[{"questionText":"What is 2+2?","type":"mcq","options":["3","4","5","6"],"correctAnswer":1,"marks":1}]'></textarea>
+                        <button class="btn btn-outline btn-sm" onclick="parseJsonData()">Parse JSON</button>
+                    </div>
+                </div>
+                <div id="importPreview" class="import-preview hidden">
+                    <h4>Preview Questions (<span id="previewCount">0</span>)</h4>
+                    <div id="previewList"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="hideBulkImport()">Cancel</button>
+                <button class="btn btn-primary" onclick="importQuestions()" id="importBtn" disabled><i class="fas fa-save"></i> Import Questions</button>
             </div>
         </div>
     </div>

@@ -1,0 +1,67 @@
+[
+  {
+    "questionText": "What does HTML stand for?",
+    "type": "mcq",
+    "options": ["Hyper Text Markup Language", "High Tech Modern Language", "Home Tool Markup Language", "Hyperlink Text Management Language"],
+    "correctAnswer": 0,
+    "marks": 1
+  },
+  {
+    "questionText": "Python is an object-oriented programming language",
+    "type": "tf",
+    "correctAnswer": true,
+    "marks": 1
+  },
+  {
+    "questionText": "Which of these is a database management system?",
+    "type": "mcq",
+    "options": ["Photoshop", "MySQL", "Microsoft Word", "Chrome"],
+    "correctAnswer": 1,
+    "marks": 1
+  },
+  {
+    "questionText": "What does CPU stand for?",
+    "type": "mcq",
+    "options": ["Computer Processing Unit", "Central Processing Unit", "Core Processing Unit", "Central Program Unit"],
+    "correctAnswer": 1,
+    "marks": 1
+  },
+  {
+    "questionText": "JavaScript and Java are the same programming language",
+    "type": "tf",
+    "correctAnswer": false,
+    "marks": 1
+  },
+  {
+    "questionText": "Explain what an algorithm is",
+    "type": "short",
+    "sampleAnswer": "A step-by-step procedure for solving a problem or completing a task",
+    "marks": 2
+  },
+  {
+    "questionText": "Which is the correct way to declare a variable in JavaScript?",
+    "type": "mcq",
+    "options": ["var x = 5;", "variable x = 5;", "v x = 5;", "declare x = 5;"],
+    "correctAnswer": 0,
+    "marks": 1
+  },
+  {
+    "questionText": "Binary code uses only 0s and 1s",
+    "type": "tf",
+    "correctAnswer": true,
+    "marks": 1
+  },
+  {
+    "questionText": "What does WWW stand for?",
+    "type": "mcq",
+    "options": ["World Wide Web", "World Web Wide", "Wide World Web", "Web World Wide"],
+    "correctAnswer": 0,
+    "marks": 1
+  },
+  {
+    "questionText": "RAM stands for Random Access Memory",
+    "type": "tf",
+    "correctAnswer": true,
+    "marks": 1
+  }
+]

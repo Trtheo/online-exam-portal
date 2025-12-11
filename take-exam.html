@@ -5,28 +5,116 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Take Exam - Online Exam Portal</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="timer" id="timer">00:00</div>
-    
-    <div class="container">
-        <header>
-            <h1 id="examTitle">Loading Exam...</h1>
-        </header>
-        
-        <div class="dashboard">
+    <!-- Exam Header -->
+    <header class="exam-header">
+        <div class="exam-header-content">
+            <div class="exam-info">
+                <h1 id="examTitle"><i class="fas fa-clipboard-check"></i> Loading Exam...</h1>
+                <div class="exam-meta">
+                    <span id="examSubject"></span>
+                    <span id="questionProgress">Question 1 of 10</span>
+                </div>
+            </div>
+            <div class="exam-timer">
+                <div class="timer-container">
+                    <i class="fas fa-clock"></i>
+                    <div class="timer-display">
+                        <div id="timer">00:00</div>
+                        <div class="timer-label">Time Remaining</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="exam-container">
+        <!-- Question Navigation Sidebar -->
+        <nav class="question-sidebar">
+            <div class="sidebar-header">
+                <h3><i class="fas fa-list"></i> Questions</h3>
+                <div class="legend">
+                    <div class="legend-item">
+                        <span class="legend-dot answered"></span>
+                        <span>Answered</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-dot current"></span>
+                        <span>Current</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-dot unanswered"></span>
+                        <span>Unanswered</span>
+                    </div>
+                </div>
+            </div>
             <div class="question-nav" id="questionNav">
                 <!-- Question navigation buttons -->
             </div>
-            
+        </nav>
+
+        <!-- Main Content -->
+        <main class="exam-main">
             <div class="question-container" id="questionContainer">
-                <!-- Current question will be displayed here -->
+                <div class="loading-state">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading exam questions...</p>
+                </div>
             </div>
             
             <div class="exam-controls">
-                <button class="btn btn-primary" id="prevBtn" onclick="previousQuestion()" disabled>Previous</button>
-                <button class="btn btn-primary" id="nextBtn" onclick="nextQuestion()">Next</button>
-                <button class="btn btn-success" id="submitBtn" onclick="submitExam()" style="display: none;">Submit Exam</button>
+                <button class="btn btn-outline" id="prevBtn" onclick="previousQuestion()" disabled>
+                    <i class="fas fa-arrow-left"></i> Previous
+                </button>
+                <div class="control-center">
+                    <button class="btn btn-outline" onclick="flagQuestion()" id="flagBtn">
+                        <i class="fas fa-flag"></i> Flag for Review
+                    </button>
+                    <button class="btn btn-outline" onclick="clearAnswer()">
+                        <i class="fas fa-eraser"></i> Clear Answer
+                    </button>
+                </div>
+                <button class="btn btn-primary" id="nextBtn" onclick="nextQuestion()">
+                    Next <i class="fas fa-arrow-right"></i>
+                </button>
+                <button class="btn btn-success" id="submitBtn" onclick="submitExam()" style="display: none;">
+                    <i class="fas fa-paper-plane"></i> Submit Exam
+                </button>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Submit Confirmation Modal -->
+    <div id="submitModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-exclamation-triangle"></i> Submit Exam</h3>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to submit your exam?</p>
+                <div class="submit-summary">
+                    <div class="summary-item">
+                        <span>Total Questions:</span>
+                        <span id="totalQuestions">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span>Answered:</span>
+                        <span id="answeredCount">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span>Unanswered:</span>
+                        <span id="unansweredCount">0</span>
+                    </div>
+                </div>
+                <p><strong>Note:</strong> You cannot change your answers after submission.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="hideSubmitModal()">Cancel</button>
+                <button class="btn btn-success" onclick="confirmSubmit()">
+                    <i class="fas fa-paper-plane"></i> Submit
+                </button>
             </div>
         </div>
     </div>

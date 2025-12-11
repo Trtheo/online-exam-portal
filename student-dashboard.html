@@ -5,25 +5,159 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Dashboard - Online Exam Portal</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Student Dashboard</h1>
-        </header>
-        
-        <div class="dashboard">
-            <div class="dashboard-header">
-                <div class="user-info">
-                    <h2 id="studentName">Loading...</h2>
-                    <p>Student</p>
+    <!-- Header -->
+    <header class="main-header">
+        <div class="header-content">
+            <button class="hamburger-menu" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="logo"><i class="fas fa-graduation-cap"></i> ExamPortal</div>
+            <div class="user-menu">
+                <div class="user-avatar" id="userAvatar">ST</div>
+                <div>
+                    <div style="font-weight: 600; font-size: 14px;" id="studentName">Loading...</div>
+                    <div style="color: #64748b; font-size: 12px;">Student</div>
                 </div>
-                <button class="logout-btn" onclick="logout()">Logout</button>
+
             </div>
-            
-            <h3>Available Exams</h3>
-            <div id="examList" class="exam-grid">
-                <!-- Available exams will be loaded here -->
+        </div>
+    </header>
+
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" onclick="closeSidebar()"></div>
+    
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <ul class="sidebar-nav">
+            <li><a href="#" class="active" onclick="showDashboard()"><i class="fas fa-home nav-icon"></i>Dashboard</a></li>
+            <li><a href="#" onclick="showAvailableExams()"><i class="fas fa-clipboard-list nav-icon"></i>Available Exams</a></li>
+            <li><a href="#" onclick="showMyResults()"><i class="fas fa-chart-line nav-icon"></i>My Results</a></li>
+            <li><a href="#" onclick="showLeaderboard()"><i class="fas fa-trophy nav-icon"></i>Leaderboard</a></li>
+            <li><a href="#" onclick="showProfile()"><i class="fas fa-user nav-icon"></i>Profile</a></li>
+            <li><a href="#" onclick="logout()"><i class="fas fa-sign-out-alt nav-icon"></i>Logout</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <div class="dashboard">
+            <!-- Stats Cards -->
+            <div class="dashboard-stats">
+                <div class="stat-card">
+                    <div class="stat-icon exams"><i class="fas fa-clipboard-check"></i></div>
+                    <div class="stat-number" id="completedExams">0</div>
+                    <div class="stat-label">Completed Exams</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon students"><i class="fas fa-clock"></i></div>
+                    <div class="stat-number" id="pendingExams">0</div>
+                    <div class="stat-label">Pending Exams</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon submissions"><i class="fas fa-percentage"></i></div>
+                    <div class="stat-number" id="averageScore">0%</div>
+                    <div class="stat-label">Average Score</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon average"><i class="fas fa-trophy"></i></div>
+                    <div class="stat-number" id="bestScore">0%</div>
+                    <div class="stat-label">Best Score</div>
+                </div>
+            </div>
+
+            <!-- Available Exams Section -->
+            <div class="dashboard-section" id="examsSection">
+                <div class="section-header">
+                    <h2 class="section-title"><i class="fas fa-clipboard-list"></i> Available Exams</h2>
+                    <button class="btn btn-outline" onclick="refreshExams()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                </div>
+                <div class="section-content">
+                    <div class="filter-controls">
+                        <div class="filter-group">
+                            <label class="filter-label">Status</label>
+                            <select id="examStatusFilter" class="filter-select" onchange="filterExams()">
+                                <option value="">All Exams</option>
+                                <option value="available">Available</option>
+                                <option value="completed">Completed</option>
+                                <option value="upcoming">Upcoming</option>
+                            </select>
+                        </div>
+                        <div class="search-container">
+                            <label class="filter-label">Search</label>
+                            <div style="position: relative;">
+                                <input type="text" id="examSearch" class="search-input" placeholder="Search by title or subject..." onkeyup="searchExams()">
+                                <button class="clear-search" onclick="clearSearch()" title="Clear search">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="filter-actions">
+                            <button class="btn btn-outline btn-sm" onclick="refreshExams()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                            <button class="clear-filters" onclick="clearStudentFilters()"><i class="fas fa-times"></i> Clear</button>
+                        </div>
+                    </div>
+                    <div class="results-count" id="examResultsCount">Showing all exams</div>
+                    <div id="examList" class="exam-grid">
+                        <!-- Available exams will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notification Toast -->
+    <div id="notificationToast" class="notification-toast hidden">
+        <div class="toast-content">
+            <i class="fas fa-check-circle toast-icon"></i>
+            <span class="toast-message">Action completed successfully!</span>
+        </div>
+    </div>
+    
+    <!-- Logout Confirmation Modal -->
+    <div id="logoutModal" class="modal hidden">
+        <div class="modal-content confirmation-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-sign-out-alt"></i> Confirm Logout</h3>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to logout?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="hideLogoutModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Account Confirmation Modal -->
+    <div id="deleteModal" class="modal hidden">
+        <div class="modal-content confirmation-modal">
+            <div class="modal-header danger">
+                <h3><i class="fas fa-exclamation-triangle"></i> Delete Account</h3>
+            </div>
+            <div class="modal-body">
+                <div class="warning-box">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>
+                        <h4>⚠️ WARNING: This action cannot be undone!</h4>
+                        <p>Deleting your account will permanently:</p>
+                        <ul>
+                            <li>Delete all your exam results and submissions</li>
+                            <li>Remove your profile and personal data</li>
+                            <li>Erase your account completely</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>Enter your password to confirm:</label>
+                    <input type="password" id="deletePassword" placeholder="Current password" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="hideDeleteModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmDelete()"><i class="fas fa-trash"></i> Delete Account</button>
             </div>
         </div>
     </div>
