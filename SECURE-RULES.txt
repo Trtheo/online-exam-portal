@@ -1,0 +1,25 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /exams/{examId} {
+      allow read, write: if request.auth != null && 
+        (resource == null || resource.data.createdBy == request.auth.uid);
+      allow read: if request.auth != null && resource.data.published == true;
+      match /questions/{questionId} {
+        allow read, write: if request.auth != null && 
+          get(/databases/$(database)/documents/exams/$(examId)).data.createdBy == request.auth.uid;
+        allow read: if request.auth != null && 
+          get(/databases/$(database)/documents/exams/$(examId)).data.published == true;
+      }
+    }
+    match /submissions/{examId}/students/{studentId} {
+      allow create, read: if request.auth != null && request.auth.uid == studentId;
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/exams/$(examId)).data.createdBy == request.auth.uid;
+    }
+  }
+}

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Dashboard - Online Exam Portal</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="main-header">
+        <div class="header-content">
+            <div class="logo">📚 ExamPortal</div>
+            <div class="user-menu">
+                <div class="user-avatar" id="userAvatar">AT</div>
+                <div>
+                    <div style="font-weight: 600; font-size: 14px;" id="teacherName">Loading...</div>
+                    <div style="color: #64748b; font-size: 12px;">Teacher</div>
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="dashboard">
+            <!-- Stats Cards -->
+            <div class="dashboard-stats">
+                <div class="stat-card">
+                    <div class="stat-icon exams">📝</div>
+                    <div class="stat-number" id="totalExams">0</div>
+                    <div class="stat-label">Total Exams</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon students">👥</div>
+                    <div class="stat-number" id="totalStudents">0</div>
+                    <div class="stat-label">Students Enrolled</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon submissions">📊</div>
+                    <div class="stat-number" id="totalSubmissions">0</div>
+                    <div class="stat-label">Submissions</div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="dashboard-section">
+                <div class="section-header">
+                    <h2 class="section-title">Quick Actions</h2>
+                </div>
+                <div class="section-content">
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                        <button class="btn btn-primary btn-lg" onclick="showCreateExam()">
+                            ➕ Create New Exam
+                        </button>
+                        <button class="btn btn-outline btn-lg" onclick="showExamList()">
+                            📋 View All Exams
+                        </button>
+                        <button class="btn btn-outline btn-lg" onclick="viewAllResults()">
+                            📈 View Results
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Create Exam Modal -->
+            <div id="createExamModal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Create New Exam</h3>
+                        <button class="btn-icon" onclick="hideCreateExam()">✕</button>
+                    </div>
+                    <form id="examForm">
+                        <div class="modal-body">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Exam Title</label>
+                                    <input type="text" id="examTitle" placeholder="e.g., Mathematics Final Exam" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Subject</label>
+                                    <input type="text" id="examSubject" placeholder="e.g., Mathematics" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Duration (minutes)</label>
+                                    <input type="number" id="examDuration" placeholder="60" min="1" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Start Date & Time</label>
+                                    <input type="datetime-local" id="examStartTime" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>End Date & Time</label>
+                                    <input type="datetime-local" id="examEndTime" required>
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>Instructions (Optional)</label>
+                                    <textarea id="examInstructions" rows="3" placeholder="Enter exam instructions for students..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline" onclick="hideCreateExam()">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Create Exam</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Exams Section -->
+            <div class="dashboard-section" id="examsSection">
+                <div class="section-header">
+                    <h2 class="section-title">My Exams</h2>
+                    <button class="btn btn-primary" onclick="showCreateExam()">
+                        ➕ New Exam
+                    </button>
+                </div>
+                <div class="section-content">
+                    <div id="examList" class="exam-grid">
+                        <!-- Exams will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/teacher.js"></script>
+</body>
+</html>

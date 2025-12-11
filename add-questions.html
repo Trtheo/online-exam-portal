@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Questions - Online Exam Portal</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Add Questions</h1>
+        </header>
+        
+        <div class="dashboard">
+            <div class="dashboard-header">
+                <div class="user-info">
+                    <h2 id="examTitle">Loading...</h2>
+                    <p>Questions: <span id="questionCount">0</span></p>
+                </div>
+                <button class="btn btn-danger" onclick="goBack()">Back to Dashboard</button>
+            </div>
+            
+            <div class="question-form">
+                <h3>Add New Question</h3>
+                <form id="questionForm">
+                    <div class="form-group">
+                        <label>Question Text:</label>
+                        <textarea id="questionText" rows="3" required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Question Type:</label>
+                        <select id="questionType" onchange="toggleOptions()" required>
+                            <option value="">Select Type</option>
+                            <option value="mcq">Multiple Choice</option>
+                            <option value="tf">True/False</option>
+                            <option value="short">Short Answer</option>
+                        </select>
+                    </div>
+                    
+                    <div id="mcqOptions" class="form-group hidden">
+                        <label>Options:</label>
+                        <input type="text" id="option1" placeholder="Option A">
+                        <input type="text" id="option2" placeholder="Option B">
+                        <input type="text" id="option3" placeholder="Option C">
+                        <input type="text" id="option4" placeholder="Option D">
+                        <label>Correct Answer:</label>
+                        <select id="correctOption">
+                            <option value="0">Option A</option>
+                            <option value="1">Option B</option>
+                            <option value="2">Option C</option>
+                            <option value="3">Option D</option>
+                        </select>
+                    </div>
+                    
+                    <div id="tfOptions" class="form-group hidden">
+                        <label>Correct Answer:</label>
+                        <select id="tfAnswer">
+                            <option value="true">True</option>
+                            <option value="false">False</option>
+                        </select>
+                    </div>
+                    
+                    <div id="shortOptions" class="form-group hidden">
+                        <label>Sample Answer:</label>
+                        <textarea id="sampleAnswer" rows="2" placeholder="Expected answer for reference"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Marks:</label>
+                        <input type="number" id="questionMarks" value="1" min="1" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Add Question</button>
+                </form>
+            </div>
+            
+            <div class="questions-list">
+                <h3>Added Questions</h3>
+                <div id="questionsList"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/add-questions.js"></script>
+</body>
+</html>
