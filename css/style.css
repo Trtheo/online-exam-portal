@@ -1541,13 +1541,32 @@ textarea:hover {
 
 .profile-form {
     display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 20px;
+    max-width: 600px;
+}
+
+.profile-form .form-group {
+    width: 100%;
+}
+
+.profile-form input {
+    width: 100%;
+    max-width: 100%;
 }
 
 .profile-actions {
     display: flex;
     gap: 12px;
-    margin-top: 8px;
+    margin-top: 24px;
+    width: 100%;
+}
+
+.profile-actions .btn {
+    flex: 1;
+    justify-content: center;
+    font-weight: 600;
+    padding: 14px 24px;
 }
 
 .profile-stats {
@@ -1591,13 +1610,59 @@ textarea:hover {
 
 /* Confirmation Modal Styles */
 .confirmation-modal {
-    max-width: 500px;
+    width: 380px;
+    height: auto;
+    min-height: 200px;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+.confirmation-modal .modal-header {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border-bottom: none;
+    padding: 24px 32px 20px;
+}
+
+.confirmation-modal .modal-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+}
+
+.confirmation-modal .modal-header i {
+    font-size: 20px;
+    opacity: 0.9;
+}
+
+.confirmation-modal .modal-body {
+    padding: 32px;
+    text-align: center;
+}
+
+.confirmation-modal .modal-body p {
+    font-size: 16px;
+    color: #475569;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.confirmation-modal .modal-footer {
+    padding: 24px 32px 32px;
+    border-top: none;
+    display: flex;
+    justify-content: flex-end;
+    gap: 16px;
 }
 
 .modal-header.danger {
-    background: linear-gradient(135deg, #fee2e2, #fecaca);
-    color: #991b1b;
-    border-bottom: 1px solid #f87171;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    border-bottom: none;
 }
 
 .warning-box {
@@ -1658,12 +1723,33 @@ textarea:hover {
     .profile-actions {
         flex-direction: column;
         gap: 12px;
+        max-width: none;
+    }
+    
+    .profile-form .form-group,
+    .profile-form input {
+        max-width: none;
     }
     
     /* Modal Mobile */
     .confirmation-modal {
         max-width: 95%;
-        margin: 10px;
+        margin: 20px;
+        border-radius: 12px;
+    }
+    
+    .confirmation-modal .modal-header {
+        padding: 20px 24px 16px;
+    }
+    
+    .confirmation-modal .modal-body {
+        padding: 24px;
+    }
+    
+    .confirmation-modal .modal-footer {
+        padding: 20px 24px 24px;
+        flex-direction: column;
+        gap: 12px;
     }
     
     .warning-box {
