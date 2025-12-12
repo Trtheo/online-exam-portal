@@ -479,6 +479,11 @@ function refreshStudents() {
     loadStudentManagement();
 }
 
+function refreshAllResults() {
+    showNotification('Refreshing results...', 'info');
+    loadAllResultsInline();
+}
+
 function viewStudentDetails(studentId) {
     const student = allStudents.find(s => s.id === studentId);
     if (!student) return;
@@ -2570,7 +2575,7 @@ function showLeaderboard() {
                         </select>
                     </div>
                     <div class="filter-actions">
-                        <button class="btn btn-outline btn-sm" onclick="loadLeaderboard()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                        <button class="btn btn-outline btn-sm" onclick="refreshLeaderboard()"><i class="fas fa-sync-alt"></i> Refresh</button>
                         <button class="clear-filters" onclick="clearLeaderboardFilters()"><i class="fas fa-times"></i> Clear</button>
                     </div>
                 </div>
@@ -2584,78 +2589,107 @@ function showLeaderboard() {
     loadLeaderboard();
 }
 
+let allLeaderboardData = [];
+
 async function loadLeaderboard() {
     const container = document.getElementById('leaderboardContainer');
     const examFilter = document.getElementById('teacherLeaderboardExamFilter');
-    const performanceFilter = document.getElementById('teacherLeaderboardPerformanceFilter');
     
     try {
-        const [examSnapshot, allSubmissions] = await Promise.all([
-            db.collection('exams').where('createdBy', '==', currentUser.uid).where('published', '==', true).get(),
-            Promise.all((await db.collection('exams').where('createdBy', '==', currentUser.uid).where('published', '==', true).get()).docs.map(async examDoc => {
-                const submissions = await db.collection('submissions').doc(examDoc.id).collection('students').get();
-                return { examId: examDoc.id, submissions: submissions.docs };
-            }))
-        ]);
+        const examSnapshot = await db.collection('exams')
+            .where('createdBy', '==', currentUser.uid)
+            .where('published', '==', true)
+            .get();
         
-        // Populate exam filter
         if (examFilter) {
             examFilter.innerHTML = '<option value="">All Exams</option>' + 
                 examSnapshot.docs.map(doc => `<option value="${doc.id}">${doc.data().title} - ${doc.data().subject}</option>`).join('');
         }
         
-        const selectedExamId = examFilter?.value || '';
-        const selectedPerformance = performanceFilter?.value || '';
+        const examResults = [];
         
-        // Get unique student IDs
-        const studentIds = new Set();
-        allSubmissions.forEach(({ submissions }) => {
-            submissions.forEach(doc => studentIds.add(doc.id));
-        });
-        
-        // Batch load user data
-        const userDocs = await Promise.all(Array.from(studentIds).map(id => db.collection('users').doc(id).get()));
-        const userData = new Map();
-        userDocs.forEach(doc => {
-            if (doc.exists) userData.set(doc.id, doc.data());
-        });
-        
-        const studentsMap = new Map();
-        
-        for (const { examId, submissions } of allSubmissions) {
-            if (selectedExamId && examId !== selectedExamId) continue;
+        for (const examDoc of examSnapshot.docs) {
+            const exam = examDoc.data();
+            const submissionSnapshot = await db.collection('submissions')
+                .doc(examDoc.id).collection('students').get();
             
-            for (const submissionDoc of submissions) {
+            const examStudents = [];
+            
+            for (const submissionDoc of submissionSnapshot.docs) {
                 const studentId = submissionDoc.id;
                 const submission = submissionDoc.data();
-                const user = userData.get(studentId);
                 
-                if (!studentsMap.has(studentId)) {
-                    studentsMap.set(studentId, {
-                        name: user?.name || 'Unknown',
-                        totalScore: 0,
-                        totalExams: 0,
-                        suspiciousActivity: 0
-                    });
-                }
+                const userDoc = await db.collection('users').doc(studentId).get();
+                const userData = userDoc.data();
                 
-                const student = studentsMap.get(studentId);
-                const score = await calculateInlineScore(examId, submission.answers);
+                const score = await calculateInlineScore(examDoc.id, submission.answers);
                 const percentage = score.total > 0 ? (score.scored / score.total) * 100 : 0;
                 
-                student.totalScore += percentage;
-                student.totalExams += 1;
-                student.suspiciousActivity += (submission.suspiciousActivity?.length || 0);
+                examStudents.push({
+                    name: userData?.name || 'Unknown',
+                    score: percentage,
+                    examCount: 1,
+                    suspiciousActivity: submission.suspiciousActivity?.length || 0,
+                    isCurrentUser: false
+                });
             }
+            
+            examStudents.sort((a, b) => b.score - a.score);
+            examResults.push({
+                examId: examDoc.id,
+                title: exam.title,
+                subject: exam.subject,
+                students: examStudents
+            });
         }
         
-        let students = Array.from(studentsMap.values())
-            .map(s => ({ ...s, averageScore: s.totalScore / s.totalExams }))
-            .sort((a, b) => b.averageScore - a.averageScore);
+        allLeaderboardData = examResults;
+        displayLeaderboard();
+        
+    } catch (error) {
+        console.error('Leaderboard error:', error);
+        container.innerHTML = '<p style="color: #ef4444;">Error loading leaderboard. Please refresh.</p>';
+    }
+}
+
+function displayLeaderboard() {
+    const container = document.getElementById('leaderboardContainer');
+    const examFilter = document.getElementById('teacherLeaderboardExamFilter');
+    const performanceFilter = document.getElementById('teacherLeaderboardPerformanceFilter');
+    const searchTerm = document.getElementById('leaderboardSearch')?.value.toLowerCase() || '';
+    
+    const selectedExamId = examFilter?.value || '';
+    const selectedPerformance = performanceFilter?.value || '';
+    
+    let filteredData = allLeaderboardData;
+    
+    if (selectedExamId) {
+        filteredData = filteredData.filter(exam => exam.examId === selectedExamId);
+    }
+    
+    if (filteredData.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <i class="fas fa-trophy" style="font-size: 48px; margin-bottom: 16px;"></i>
+                <h3>No data available</h3>
+            </div>
+        `;
+        return;
+    }
+    
+    let leaderboardHTML = '';
+    filteredData.forEach(exam => {
+        let students = exam.students;
+        
+        if (searchTerm) {
+            students = students.filter(student => 
+                student.name.toLowerCase().includes(searchTerm)
+            );
+        }
         
         if (selectedPerformance) {
             students = students.filter(student => {
-                const avg = student.averageScore;
+                const avg = student.score;
                 if (selectedPerformance === 'high') return avg >= 70;
                 if (selectedPerformance === 'medium') return avg >= 50 && avg < 70;
                 if (selectedPerformance === 'low') return avg < 50;
@@ -2663,48 +2697,58 @@ async function loadLeaderboard() {
             });
         }
         
-        if (students.length === 0) {
-            container.innerHTML = `
-                <div style="text-align: center; padding: 40px;">
-                    <i class="fas fa-trophy" style="font-size: 48px; margin-bottom: 16px;"></i>
-                    <h3>No data available</h3>
-                    <p>Try adjusting your filters</p>
+        if (students.length > 0) {
+            const rankIcons = ['<i class="fas fa-trophy" style="color: #ffd700;"></i>', '<i class="fas fa-medal" style="color: #c0c0c0;"></i>', '<i class="fas fa-award" style="color: #cd7f32;"></i>'];
+            
+            leaderboardHTML += `
+                <div style="margin-bottom: 32px;">
+                    <h3 style="color: #1e293b; margin-bottom: 16px;">${exam.title} - ${exam.subject}</h3>
+                    <div class="leaderboard-table">
+                        <div class="leaderboard-header">
+                            <div>Rank</div><div>Student</div><div>Score</div><div>Flags</div>
+                        </div>
+                        ${students.map((student, index) => {
+                            const rank = index < 3 ? rankIcons[index] : `#${index + 1}`;
+                            return `
+                                <div class="leaderboard-row">
+                                    <div>${rank}</div>
+                                    <div>${student.name}</div>
+                                    <div>${student.score.toFixed(1)}%</div>
+                                    <div>${student.suspiciousActivity > 0 ? `<i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i> ${student.suspiciousActivity}` : '<i class="fas fa-check-circle" style="color: #10b981;"></i>'}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
                 </div>
             `;
-            return;
         }
-        
-        const rankIcons = ['<i class="fas fa-trophy" style="color: #ffd700;"></i>', '<i class="fas fa-medal" style="color: #c0c0c0;"></i>', '<i class="fas fa-award" style="color: #cd7f32;"></i>'];
-        
-        container.innerHTML = `
-            <div class="leaderboard-table">
-                <div class="leaderboard-header">
-                    <div>Rank</div><div>Student</div><div>Score</div><div>Exams</div><div>Flags</div>
-                </div>
-                ${students.map((student, index) => {
-                    const rank = index < 3 ? rankIcons[index] : `#${index + 1}`;
-                    return `
-                        <div class="leaderboard-row">
-                            <div>${rank}</div>
-                            <div>${student.name}</div>
-                            <div>${student.averageScore.toFixed(1)}%</div>
-                            <div>${student.totalExams}</div>
-                            <div>${student.suspiciousActivity > 0 ? `<i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i> ${student.suspiciousActivity}` : '<i class="fas fa-check-circle" style="color: #10b981;"></i>'}</div>
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-        `;
-        
-    } catch (error) {
-        container.innerHTML = '<p style="color: #ef4444;">Error loading leaderboard.</p>';
-    }
+    });
+    
+    container.innerHTML = leaderboardHTML || `
+        <div style="text-align: center; padding: 40px;">
+            <i class="fas fa-search" style="font-size: 48px; margin-bottom: 16px;"></i>
+            <h3>No results found</h3>
+            <p>Try adjusting your search or filters</p>
+        </div>
+    `;
+}
+
+function filterLeaderboard() {
+    displayLeaderboard();
+}
+
+function refreshLeaderboard() {
+    showNotification('Refreshing leaderboard...', 'info');
+    loadLeaderboard();
 }
 
 function clearLeaderboardFilters() {
     document.getElementById('teacherLeaderboardExamFilter').value = '';
     document.getElementById('teacherLeaderboardPerformanceFilter').value = '';
-    loadLeaderboard();
+    if (document.getElementById('leaderboardSearch')) {
+        document.getElementById('leaderboardSearch').value = '';
+    }
+    displayLeaderboard();
 }
 
 async function gradeSubmission(examId, studentId) {

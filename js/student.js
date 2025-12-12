@@ -564,6 +564,11 @@ function refreshExams() {
     loadDashboardData();
 }
 
+function refreshStudentLeaderboard() {
+    showNotification('Refreshing leaderboard...', 'info');
+    loadStudentLeaderboard();
+}
+
 function showNotification(message, type = 'success') {
     const toast = document.getElementById('notificationToast');
     const icon = toast.querySelector('.toast-icon');
@@ -703,7 +708,7 @@ function showLeaderboard() {
                         </select>
                     </div>
                     <div class="filter-actions">
-                        <button class="btn btn-outline btn-sm" onclick="loadStudentLeaderboard()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                        <button class="btn btn-outline btn-sm" onclick="refreshStudentLeaderboard()"><i class="fas fa-sync-alt"></i> Refresh</button>
                     </div>
                 </div>
                 <div id="leaderboardContainer">Loading...</div>
@@ -725,7 +730,6 @@ async function loadStudentLeaderboard() {
             .where('published', '==', true)
             .get();
         
-        // Populate exam filter
         if (examFilter) {
             examFilter.innerHTML = '<option value="">All Exams</option>';
             examSnapshot.forEach(doc => {
@@ -738,7 +742,6 @@ async function loadStudentLeaderboard() {
         const examResults = [];
         
         for (const examDoc of examSnapshot.docs) {
-            // Skip if filtering by specific exam
             if (selectedExamId && examDoc.id !== selectedExamId) continue;
             
             const exam = examDoc.data();
@@ -754,24 +757,9 @@ async function loadStudentLeaderboard() {
                 const userDoc = await db.collection('users').doc(studentId).get();
                 const userData = userDoc.data();
                 
-                const questionsSnapshot = await db.collection('exams').doc(examDoc.id)
-                    .collection('questions').get();
+                const score = await calculateScore(examDoc.id, submission.answers);
+                const percentage = score.total > 0 ? (score.scored / score.total) * 100 : 0;
                 
-                let scored = 0, total = 0;
-                questionsSnapshot.forEach(qDoc => {
-                    const question = qDoc.data();
-                    total += question.marks;
-                    const answer = submission.answers[qDoc.id];
-                    if (answer !== undefined) {
-                        if (question.type === 'mcq' && parseInt(answer) === question.correctAnswer) {
-                            scored += question.marks;
-                        } else if (question.type === 'tf' && answer === question.correctAnswer.toString()) {
-                            scored += question.marks;
-                        }
-                    }
-                });
-                
-                const percentage = total > 0 ? (scored / total) * 100 : 0;
                 examStudents.push({
                     name: userData?.name || 'Unknown',
                     score: percentage,
@@ -797,6 +785,8 @@ async function loadStudentLeaderboard() {
             return;
         }
         
+        const rankIcons = ['<i class="fas fa-trophy" style="color: #ffd700;"></i>', '<i class="fas fa-medal" style="color: #c0c0c0;"></i>', '<i class="fas fa-award" style="color: #cd7f32;"></i>'];
+        
         let leaderboardHTML = '';
         examResults.forEach(exam => {
             if (exam.students.length > 0) {
@@ -808,7 +798,7 @@ async function loadStudentLeaderboard() {
                                 <div>Rank</div><div>Student</div><div>Score</div>
                             </div>
                             ${exam.students.map((student, index) => {
-                                const rank = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+                                const rank = index < 3 ? rankIcons[index] : `#${index + 1}`;
                                 const highlight = student.isCurrentUser ? 'style="background: #f0f4ff; border: 2px solid #667eea;"' : '';
                                 return `
                                     <div class="leaderboard-row" ${highlight}>
@@ -827,7 +817,8 @@ async function loadStudentLeaderboard() {
         container.innerHTML = leaderboardHTML;
         
     } catch (error) {
-        container.innerHTML = '<p style="color: #ef4444;">Error loading leaderboard.</p>';
+        console.error('Student leaderboard error:', error);
+        container.innerHTML = '<p style="color: #ef4444;">Error loading leaderboard. Please refresh.</p>';
     }
 }
 
