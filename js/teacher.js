@@ -235,39 +235,49 @@ async function loadStudentManagement() {
     try {
         container.innerHTML = '<div style="text-align: center; padding: 40px;">Loading students...</div>';
         
-        // Load exams for filter
-        const examSnapshot = await db.collection('exams')
-            .where('createdBy', '==', currentUser.uid)
-            .get();
+        // Load exams and submissions in parallel
+        const [examSnapshot, allSubmissions] = await Promise.all([
+            db.collection('exams').where('createdBy', '==', currentUser.uid).get(),
+            Promise.all((await db.collection('exams').where('createdBy', '==', currentUser.uid).get()).docs.map(async examDoc => {
+                const submissions = await db.collection('submissions').doc(examDoc.id).collection('students').get();
+                return { examId: examDoc.id, exam: examDoc.data(), submissions: submissions.docs };
+            }))
+        ]);
         
-        examFilter.innerHTML = '<option value="">All Exams</option>';
-        examSnapshot.forEach(doc => {
-            const exam = doc.data();
-            examFilter.innerHTML += `<option value="${doc.id}">${exam.title} - ${exam.subject}</option>`;
+        // Populate exam filter
+        examFilter.innerHTML = '<option value="">All Exams</option>' + 
+            examSnapshot.docs.map(doc => `<option value="${doc.id}">${doc.data().title} - ${doc.data().subject}</option>`).join('');
+        
+        // Get all unique student IDs first
+        const studentIds = new Set();
+        allSubmissions.forEach(({ submissions }) => {
+            submissions.forEach(doc => studentIds.add(doc.id));
         });
         
-        // Load all students who submitted to teacher's exams
+        // Batch load all user data
+        const userDocs = await Promise.all(
+            Array.from(studentIds).map(id => db.collection('users').doc(id).get())
+        );
+        const userData = new Map();
+        userDocs.forEach(doc => {
+            if (doc.exists) userData.set(doc.id, doc.data());
+        });
+        
+        // Process students data
         const studentsMap = new Map();
         
-        for (const examDoc of examSnapshot.docs) {
-            const exam = examDoc.data();
-            const submissionSnapshot = await db.collection('submissions')
-                .doc(examDoc.id)
-                .collection('students')
-                .get();
-            
-            for (const submissionDoc of submissionSnapshot.docs) {
+        for (const { examId, exam, submissions } of allSubmissions) {
+            for (const submissionDoc of submissions) {
                 const studentId = submissionDoc.id;
                 const submission = submissionDoc.data();
+                const user = userData.get(studentId);
                 
                 if (!studentsMap.has(studentId)) {
-                    const userDoc = await db.collection('users').doc(studentId).get();
-                    const userData = userDoc.data();
                     studentsMap.set(studentId, {
                         id: studentId,
-                        name: userData?.name || 'Unknown',
-                        email: userData?.email || 'Unknown',
-                        joinedAt: userData?.createdAt,
+                        name: user?.name || 'Unknown',
+                        email: user?.email || 'Unknown',
+                        joinedAt: user?.createdAt,
                         exams: [],
                         totalScore: 0,
                         totalExams: 0,
@@ -275,12 +285,12 @@ async function loadStudentManagement() {
                     });
                 }
                 
-                const score = await calculateInlineScore(examDoc.id, submission.answers);
+                const score = await calculateInlineScore(examId, submission.answers);
                 const percentage = score.total > 0 ? ((score.scored / score.total) * 100) : 0;
                 
                 const student = studentsMap.get(studentId);
                 student.exams.push({
-                    examId: examDoc.id,
+                    examId,
                     examTitle: exam.title,
                     examSubject: exam.subject,
                     score: score.scored,
@@ -381,6 +391,9 @@ function displayStudents(students) {
                                         ${exam.percentage}%
                                     </div>
                                     <div style="font-size: 12px; color: #64748b;">${exam.score}/${exam.total}</div>
+                                    <button class="btn btn-outline btn-sm" onclick="manageStudentExam('${exam.examId}', '${student.id}')" style="margin-top: 4px; font-size: 11px;">
+                                        <i class="fas fa-cog"></i> Manage
+                                    </button>
                                 </div>
                             </div>
                         `).join('')}
@@ -2577,40 +2590,49 @@ async function loadLeaderboard() {
     const performanceFilter = document.getElementById('teacherLeaderboardPerformanceFilter');
     
     try {
-        const examSnapshot = await db.collection('exams')
-            .where('createdBy', '==', currentUser.uid)
-            .where('published', '==', true)
-            .get();
+        const [examSnapshot, allSubmissions] = await Promise.all([
+            db.collection('exams').where('createdBy', '==', currentUser.uid).where('published', '==', true).get(),
+            Promise.all((await db.collection('exams').where('createdBy', '==', currentUser.uid).where('published', '==', true).get()).docs.map(async examDoc => {
+                const submissions = await db.collection('submissions').doc(examDoc.id).collection('students').get();
+                return { examId: examDoc.id, submissions: submissions.docs };
+            }))
+        ]);
         
         // Populate exam filter
         if (examFilter) {
-            examFilter.innerHTML = '<option value="">All Exams</option>';
-            examSnapshot.forEach(doc => {
-                const exam = doc.data();
-                examFilter.innerHTML += `<option value="${doc.id}">${exam.title} - ${exam.subject}</option>`;
-            });
+            examFilter.innerHTML = '<option value="">All Exams</option>' + 
+                examSnapshot.docs.map(doc => `<option value="${doc.id}">${doc.data().title} - ${doc.data().subject}</option>`).join('');
         }
         
         const selectedExamId = examFilter?.value || '';
         const selectedPerformance = performanceFilter?.value || '';
+        
+        // Get unique student IDs
+        const studentIds = new Set();
+        allSubmissions.forEach(({ submissions }) => {
+            submissions.forEach(doc => studentIds.add(doc.id));
+        });
+        
+        // Batch load user data
+        const userDocs = await Promise.all(Array.from(studentIds).map(id => db.collection('users').doc(id).get()));
+        const userData = new Map();
+        userDocs.forEach(doc => {
+            if (doc.exists) userData.set(doc.id, doc.data());
+        });
+        
         const studentsMap = new Map();
         
-        for (const examDoc of examSnapshot.docs) {
-            // Skip if filtering by specific exam
-            if (selectedExamId && examDoc.id !== selectedExamId) continue;
+        for (const { examId, submissions } of allSubmissions) {
+            if (selectedExamId && examId !== selectedExamId) continue;
             
-            const submissionSnapshot = await db.collection('submissions')
-                .doc(examDoc.id).collection('students').get();
-            
-            for (const submissionDoc of submissionSnapshot.docs) {
+            for (const submissionDoc of submissions) {
                 const studentId = submissionDoc.id;
                 const submission = submissionDoc.data();
+                const user = userData.get(studentId);
                 
                 if (!studentsMap.has(studentId)) {
-                    const userDoc = await db.collection('users').doc(studentId).get();
-                    const userData = userDoc.data();
                     studentsMap.set(studentId, {
-                        name: userData?.name || 'Unknown',
+                        name: user?.name || 'Unknown',
                         totalScore: 0,
                         totalExams: 0,
                         suspiciousActivity: 0
@@ -2618,7 +2640,7 @@ async function loadLeaderboard() {
                 }
                 
                 const student = studentsMap.get(studentId);
-                const score = await calculateInlineScore(examDoc.id, submission.answers);
+                const score = await calculateInlineScore(examId, submission.answers);
                 const percentage = score.total > 0 ? (score.scored / score.total) * 100 : 0;
                 
                 student.totalScore += percentage;
@@ -2631,7 +2653,6 @@ async function loadLeaderboard() {
             .map(s => ({ ...s, averageScore: s.totalScore / s.totalExams }))
             .sort((a, b) => b.averageScore - a.averageScore);
         
-        // Apply performance filter
         if (selectedPerformance) {
             students = students.filter(student => {
                 const avg = student.averageScore;
@@ -2653,20 +2674,22 @@ async function loadLeaderboard() {
             return;
         }
         
+        const rankIcons = ['<i class="fas fa-trophy" style="color: #ffd700;"></i>', '<i class="fas fa-medal" style="color: #c0c0c0;"></i>', '<i class="fas fa-award" style="color: #cd7f32;"></i>'];
+        
         container.innerHTML = `
             <div class="leaderboard-table">
                 <div class="leaderboard-header">
                     <div>Rank</div><div>Student</div><div>Score</div><div>Exams</div><div>Flags</div>
                 </div>
                 ${students.map((student, index) => {
-                    const rank = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+                    const rank = index < 3 ? rankIcons[index] : `#${index + 1}`;
                     return `
                         <div class="leaderboard-row">
                             <div>${rank}</div>
                             <div>${student.name}</div>
                             <div>${student.averageScore.toFixed(1)}%</div>
                             <div>${student.totalExams}</div>
-                            <div>${student.suspiciousActivity > 0 ? `⚠️ ${student.suspiciousActivity}` : '✅'}</div>
+                            <div>${student.suspiciousActivity > 0 ? `<i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i> ${student.suspiciousActivity}` : '<i class="fas fa-check-circle" style="color: #10b981;"></i>'}</div>
                         </div>
                     `;
                 }).join('')}
@@ -2866,6 +2889,165 @@ async function loadExamResults(examId) {
     }
 }
 
+async function manageStudentExam(examId, studentId) {
+    try {
+        const examDoc = await db.collection('exams').doc(examId).get();
+        const exam = examDoc.data();
+        
+        const userDoc = await db.collection('users').doc(studentId).get();
+        const userData = userDoc.data();
+        
+        const submissionDoc = await db.collection('submissions')
+            .doc(examId).collection('students').doc(studentId).get();
+        
+        const studentExamDoc = await db.collection('studentExamStatus')
+            .doc(`${examId}_${studentId}`).get();
+        
+        const status = studentExamDoc.exists ? studentExamDoc.data() : { active: true };
+        
+        document.getElementById('studentExamContent').innerHTML = `
+            <div class="student-exam-info">
+                <h4>${userData?.name || 'Unknown'}</h4>
+                <p><strong>Email:</strong> ${userData?.email || 'Unknown'}</p>
+                <p><strong>Exam:</strong> ${exam.title}</p>
+                <p><strong>Status:</strong> <span class="status-badge ${status.active ? 'active' : 'inactive'}">${status.active ? 'Active' : 'Deactivated'}</span></p>
+                ${submissionDoc.exists ? `<p><strong>Submitted:</strong> ${submissionDoc.data().submittedAt?.toDate().toLocaleString() || 'Unknown'}</p>` : '<p><strong>Status:</strong> Not submitted</p>'}
+            </div>
+            
+            <div class="management-actions" style="margin-top: 20px;">
+                ${status.active ? 
+                    `<button class="btn btn-danger" onclick="deactivateStudentExam('${examId}', '${studentId}')">
+                        <i class="fas fa-pause"></i> Deactivate Exam
+                    </button>` :
+                    `<button class="btn btn-success" onclick="activateStudentExam('${examId}', '${studentId}')">
+                        <i class="fas fa-play"></i> Activate Exam
+                    </button>`
+                }
+                ${submissionDoc.exists ? 
+                    `<button class="btn btn-warning" onclick="resetStudentExam('${examId}', '${studentId}')" style="margin-left: 8px;">
+                        <i class="fas fa-redo"></i> Reset Submission
+                    </button>` : ''
+                }
+            </div>
+            
+            <div class="info-box" style="margin-top: 16px; padding: 12px; background: #f0f4ff; border-radius: 6px; font-size: 14px;">
+                <p><strong>Note:</strong></p>
+                <ul style="margin: 8px 0 0 20px;">
+                    <li>Deactivating will prevent the student from taking/continuing the exam</li>
+                    <li>If exam is in progress, current answers will be auto-saved</li>
+                    <li>Reactivating allows the student to continue from where they left off</li>
+                    <li>Reset will clear all answers and allow a fresh attempt</li>
+                </ul>
+            </div>
+        `;
+        
+        document.getElementById('studentExamModal').classList.remove('hidden');
+        
+    } catch (error) {
+        showNotification('Error loading student exam data: ' + error.message, 'error');
+    }
+}
+
+function hideStudentExamModal() {
+    document.getElementById('studentExamModal').classList.add('hidden');
+}
+
+async function deactivateStudentExam(examId, studentId) {
+    try {
+        // Save current progress if student is taking exam
+        const submissionDoc = await db.collection('submissions')
+            .doc(examId).collection('students').doc(studentId).get();
+        
+        if (!submissionDoc.exists) {
+            // Create partial submission with current timestamp
+            await db.collection('submissions').doc(examId)
+                .collection('students').doc(studentId).set({
+                    answers: {},
+                    submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'deactivated',
+                    partialSubmission: true
+                });
+        } else {
+            // Update existing submission
+            await db.collection('submissions').doc(examId)
+                .collection('students').doc(studentId).update({
+                    status: 'deactivated',
+                    deactivatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+        }
+        
+        // Set student exam status to inactive
+        await db.collection('studentExamStatus').doc(`${examId}_${studentId}`).set({
+            active: false,
+            deactivatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            deactivatedBy: currentUser.uid
+        });
+        
+        showNotification('Student exam deactivated successfully');
+        hideStudentExamModal();
+        loadStudentManagement();
+        
+    } catch (error) {
+        showNotification('Error deactivating exam: ' + error.message, 'error');
+    }
+}
+
+async function activateStudentExam(examId, studentId) {
+    try {
+        // Reactivate student exam
+        await db.collection('studentExamStatus').doc(`${examId}_${studentId}`).set({
+            active: true,
+            reactivatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            reactivatedBy: currentUser.uid
+        });
+        
+        // Update submission status if exists
+        const submissionDoc = await db.collection('submissions')
+            .doc(examId).collection('students').doc(studentId).get();
+        
+        if (submissionDoc.exists) {
+            await db.collection('submissions').doc(examId)
+                .collection('students').doc(studentId).update({
+                    status: 'active',
+                    reactivatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+        }
+        
+        showNotification('Student exam activated successfully');
+        hideStudentExamModal();
+        loadStudentManagement();
+        
+    } catch (error) {
+        showNotification('Error activating exam: ' + error.message, 'error');
+    }
+}
+
+async function resetStudentExam(examId, studentId) {
+    if (!confirm('Are you sure you want to reset this student\'s exam? All their answers will be deleted.')) {
+        return;
+    }
+    
+    try {
+        // Delete submission
+        await db.collection('submissions').doc(examId)
+            .collection('students').doc(studentId).delete();
+        
+        // Reset student exam status
+        await db.collection('studentExamStatus').doc(`${examId}_${studentId}`).set({
+            active: true,
+            resetAt: firebase.firestore.FieldValue.serverTimestamp(),
+            resetBy: currentUser.uid
+        });
+        
+        showNotification('Student exam reset successfully');
+        hideStudentExamModal();
+        loadStudentManagement();
+        
+    } catch (error) {
+        showNotification('Error resetting exam: ' + error.message, 'error');
+    }
+}
+
 // Close modal when clicking outside
 document.addEventListener('click', (e) => {
     const editModal = document.getElementById('editExamModal');
@@ -2875,6 +3057,7 @@ document.addEventListener('click', (e) => {
     const logoutModal = document.getElementById('logoutModal');
     const deleteModal = document.getElementById('deleteModal');
     const publishModal = document.getElementById('publishModal');
+    const studentExamModal = document.getElementById('studentExamModal');
     
     if (e.target === editModal) {
         hideEditExam();
@@ -2890,5 +3073,7 @@ document.addEventListener('click', (e) => {
         hideDeleteModal();
     } else if (e.target === publishModal) {
         hidePublishModal();
+    } else if (e.target === studentExamModal) {
+        hideStudentExamModal();
     }
 });

@@ -4,8 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Take Exam - Online Exam Portal</title>
+    <link rel="icon" type="image/png" href="images/titleimage.png">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+    .cancel-exam-btn {
+        background: #ef4444;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-left: 16px;
+        transition: background 0.2s;
+    }
+    .cancel-exam-btn:hover {
+        background: #dc2626;
+    }
+    </style>
 </head>
 <body class="exam-taking">
     <!-- Exam Header -->
@@ -26,6 +43,9 @@
                         <div class="timer-label">Time Remaining</div>
                     </div>
                 </div>
+                <button class="cancel-exam-btn" onclick="cancelExam()" title="Cancel Exam">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
             </div>
         </div>
     </header>

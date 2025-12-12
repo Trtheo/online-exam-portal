@@ -31,6 +31,16 @@ async function loadExam() {
                 throw new Error('Invalid exam data: missing duration');
             }
             
+            // Check if student is allowed to take this exam
+            const studentExamStatusDoc = await db.collection('studentExamStatus')
+                .doc(`${currentExamId}_${currentUser.uid}`).get();
+            
+            if (studentExamStatusDoc.exists && !studentExamStatusDoc.data().active) {
+                alert('This exam has been deactivated for you. Please contact your teacher.');
+                window.location.href = 'student-dashboard.html';
+                return;
+            }
+            
             // Check exam status
             const now = new Date();
             const startTime = examData.startTime ? examData.startTime.toDate() : null;
@@ -483,26 +493,7 @@ function initAntiCheat() {
 }
 
 function requestFullScreen() {
-    const elem = document.documentElement;
-    if (elem.requestFullscreen) {
-        elem.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
-    } else if (elem.webkitRequestFullscreen) {
-        elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-    } else if (elem.mozRequestFullScreen) {
-        elem.mozRequestFullScreen();
-    } else if (elem.msRequestFullscreen) {
-        elem.msRequestFullscreen();
-    }
-    
-    // Force fullscreen with additional methods
-    setTimeout(() => {
-        if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement) {
-            // Try alternative fullscreen API
-            if (document.body.webkitRequestFullscreen) {
-                document.body.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-            }
-        }
-    }, 1000);
+    forceFullscreen();
 }
 
 function logSuspiciousActivity(activity) {
@@ -511,20 +502,49 @@ function logSuspiciousActivity(activity) {
     console.warn('Suspicious activity detected:', activity);
 }
 
+function cancelExam() {
+    showLeaveModal();
+}
+
 // Initialize anti-cheat when exam starts
 auth.onAuthStateChanged(async (user) => {
     if (user) {
         currentUser = user;
         await loadExam();
         await loadQuestions();
-        requestFullScreen();
-        initAntiCheat();
-        startTimer();
-        displayQuestion();
+        
+        // Force fullscreen immediately after confirmation
+        setTimeout(() => {
+            forceFullscreen();
+            initAntiCheat();
+            startTimer();
+            displayQuestion();
+        }, 500);
     } else {
         window.location.href = 'index.html';
     }
 });
+
+function forceFullscreen() {
+    const elem = document.documentElement;
+    
+    if (elem.requestFullscreen) {
+        elem.requestFullscreen({ navigationUI: "hide" });
+    } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+    } else if (elem.mozRequestFullScreen) {
+        elem.mozRequestFullScreen();
+    } else if (elem.msRequestFullscreen) {
+        elem.msRequestFullscreen();
+    }
+    
+    // Retry if not successful
+    setTimeout(() => {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            forceFullscreen();
+        }
+    }, 1000);
+}
 
 // Clear saved answers after submission
 window.addEventListener('unload', () => {

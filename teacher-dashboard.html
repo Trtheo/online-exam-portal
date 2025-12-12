@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teacher Dashboard - Online Exam Portal</title>
+    <link rel="icon" type="image/png" href="images/titleimage.png">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
@@ -414,6 +415,22 @@
         </div>
     </div>
     
+    <!-- Student Exam Management Modal -->
+    <div id="studentExamModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-cog"></i> Manage Student Exam</h3>
+                <button class="btn-icon" onclick="hideStudentExamModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div id="studentExamContent">Loading...</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="hideStudentExamModal()">Close</button>
+            </div>
+        </div>
+    </div>
+    
     <!-- Grading Modal -->
     <div id="gradingModal" class="modal hidden">
         <div class="modal-content large-modal">
@@ -509,6 +526,40 @@
     .grade-input input:focus {
         border-color: #667eea;
         outline: none;
+    }
+    
+    .status-badge {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    
+    .status-badge.active {
+        background: #dcfce7;
+        color: #166534;
+    }
+    
+    .status-badge.inactive {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .student-exam-info {
+        padding: 16px;
+        background: #f8fafc;
+        border-radius: 8px;
+        margin-bottom: 16px;
+    }
+    
+    .management-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    
+    .info-box {
+        border-left: 4px solid #667eea;
     }
     </style>
 </body>
