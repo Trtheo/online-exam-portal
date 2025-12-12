@@ -54,8 +54,32 @@ A comprehensive web-based examination platform built with Firebase, featuring re
 - **PDF Generation**: jsPDF for reports
 - **Excel Export**: SheetJS for spreadsheet generation
 
+##  Quick Start
 
-### 2. Firestore Security Rules
+### 1. Clone Repository
+```bash
+git clone https://github.com/Trtheo/online-exam-portal.git
+
+cd online-exam
+```
+
+### 2. Firebase Setup
+1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
+2. Enable Authentication (Email/Password)
+3. Create Firestore Database
+4. Update `js/firebase-config.js` with your Firebase config:
+```javascript
+const firebaseConfig = {
+  apiKey: "your-api-key",
+  authDomain: "your-project.firebaseapp.com",
+  projectId: "your-project-id",
+  storageBucket: "your-project.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "your-app-id"
+};
+```
+
+### 3. Firestore Security Rules
 ```javascript
 rules_version = '2';
 service cloud.firestore {
@@ -73,12 +97,12 @@ service cloud.firestore {
 
 ### 4. Local Development
 ```bash
+ Clone the repository : https://github.com/Trtheo/online-exam-portal.git
+
 # Serve files using any local server
-python -m http.server 8000
-# or
-npx serve .
-# or
-php -S localhost:8000
+
+ http://localhost:127.0.0.1/index.html
+
 ```
 
 ## File Structure
@@ -143,6 +167,23 @@ online-exam/
 - **Question validation**: Prevents incomplete questions
 - **Edit functionality**: Modify existing questions
 
+##  Demo
+
+Visit the live demo: [ExamPortal Demo](https://online-exam-portal-zeta.vercel.app/)
+
+**Test Credentials:**
+- Student Email: `student4@.com`    password = `password`
+- Teacher Email: `teacher@school.com`  password = `password`
+
+##  Key Highlights
+
+- **Zero Backend Code**: Fully serverless using Firebase
+- **Real-time Updates**: Live exam monitoring and submissions
+- **Secure Exam Environment**: Comprehensive anti-cheat system
+- **Professional UI**: Modern, responsive design
+- **Easy Deployment**: Static files, deploy anywhere
+- **Scalable**: Firebase handles scaling automatically
+
 ## Browser Support
 
 - Chrome 80+
@@ -150,7 +191,7 @@ online-exam/
 - Safari 13+
 - Edge 80+
 
-## Contributing
+##  Contributing
 
 1. Fork the repository
 2. Create feature branch (`git checkout -b feature/new-feature`)
@@ -158,19 +199,23 @@ online-exam/
 4. Push to branch (`git push origin feature/new-feature`)
 5. Create Pull Request
 
-## License
 
-This project is licensed under the MIT License.
 
-## Credits
+##  Developer
 
-**Powered by BEST SCHOLARS**  
-**Developed by [Theophile Niyigaba](https://visittheo.vercel.app/)**
+**Developed by  [Theophile Niyigaba](https://visittheo.vercel.app/)**  
 
-## Support
+**Powered by BEST SCHOLARS**
 
-For support and questions, please contact the development team or create an issue in the repository.
+##  Support
+
+For support and questions:
+- Create an issue in this repository
+- Contact: [niyigabatheo10@gmail.com](niyigabatheo10@gmail.com)
+- Visit: [https://visittheo.vercel.app/](https://visittheo.vercel.app/)
 
 ---
 
-*ExamPortal - Secure Online Examination System*
+⭐ **Star this repo if you find it useful!**
+
+*Exam Portal - Secure Online Examination System*

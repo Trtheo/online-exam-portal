@@ -286,16 +286,30 @@ function createQuestionItem(question, index) {
     `;
 }
 
-async function deleteQuestion(questionId) {
-    if (confirm('Are you sure you want to delete this question?')) {
-        try {
-            await db.collection('exams').doc(currentExamId)
-                .collection('questions').doc(questionId).delete();
-            loadQuestions();
-            showNotificationModal('Success', 'Question deleted successfully!');
-        } catch (error) {
-            showNotificationModal('Error', 'Error deleting question: ' + error.message);
-        }
+let questionToDelete = null;
+
+function deleteQuestion(questionId) {
+    questionToDelete = questionId;
+    document.getElementById('deleteConfirmModal').classList.remove('hidden');
+}
+
+function hideDeleteModal() {
+    document.getElementById('deleteConfirmModal').classList.add('hidden');
+    questionToDelete = null;
+}
+
+async function confirmDeleteQuestion() {
+    if (!questionToDelete) return;
+    
+    try {
+        await db.collection('exams').doc(currentExamId)
+            .collection('questions').doc(questionToDelete).delete();
+        hideDeleteModal();
+        loadQuestions();
+        showNotificationModal('Success', 'Question deleted successfully!');
+    } catch (error) {
+        hideDeleteModal();
+        showNotificationModal('Error', 'Error deleting question: ' + error.message);
     }
 }
 

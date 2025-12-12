@@ -20,10 +20,12 @@
                 <div class="logo"><i class="fas fa-graduation-cap"></i> ExamPortal</div>
             </div>
             <div class="header-center">
-                <h1 id="examTitle">Loading...</h1>
-                <div class="exam-stats">
-                    <span><i class="fas fa-question-circle"></i> <span id="questionCount">0</span> Questions</span>
-                    <span><i class="fas fa-clock"></i> <span id="examDuration">0</span> min</span>
+                <div class="exam-info">
+                    <h1 id="examTitle">Loading...</h1>
+                    <div class="exam-stats">
+                        <span><i class="fas fa-question-circle"></i> <span id="questionCount">0</span> Questions</span>
+                        <span><i class="fas fa-clock"></i> <span id="examDuration">0</span> min</span>
+                    </div>
                 </div>
             </div>
             <div class="header-right">
@@ -253,6 +255,22 @@
                     <button type="button" class="btn btn-primary" onclick="updateQuestion()"><i class="fas fa-save"></i> Update Question</button>
                 </div>
             </form>
+        </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteConfirmModal" class="modal hidden">
+        <div class="modal-content confirmation-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-exclamation-triangle"></i> Confirm Delete</h3>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this question?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="hideDeleteModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmDeleteQuestion()">Delete</button>
+            </div>
         </div>
     </div>
     
