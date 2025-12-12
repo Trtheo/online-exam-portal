@@ -569,6 +569,82 @@ function refreshStudentLeaderboard() {
     loadStudentLeaderboard();
 }
 
+let allStudentLeaderboardData = [];
+
+function filterStudentLeaderboard() {
+    const searchTerm = document.getElementById('studentLeaderboardSearch')?.value.toLowerCase() || '';
+    const container = document.getElementById('leaderboardContainer');
+    
+    if (!searchTerm) {
+        displayStudentLeaderboardData(allStudentLeaderboardData);
+        return;
+    }
+    
+    const filteredData = allStudentLeaderboardData.map(exam => ({
+        ...exam,
+        students: exam.students.filter(student => 
+            student.name.toLowerCase().includes(searchTerm) ||
+            (student.email && student.email.toLowerCase().includes(searchTerm))
+        )
+    })).filter(exam => exam.students.length > 0);
+    
+    displayStudentLeaderboardData(filteredData);
+}
+
+function clearStudentLeaderboardFilters() {
+    document.getElementById('leaderboardExamFilter').value = '';
+    const searchInput = document.getElementById('studentLeaderboardSearch');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+    loadStudentLeaderboard();
+}
+
+function displayStudentLeaderboardData(examResults) {
+    const container = document.getElementById('leaderboardContainer');
+    
+    if (examResults.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <i class="fas fa-trophy" style="font-size: 48px; margin-bottom: 16px;"></i>
+                <h3>No data available</h3>
+            </div>
+        `;
+        return;
+    }
+    
+    const rankIcons = ['<i class="fas fa-trophy" style="color: #ffd700;"></i>', '<i class="fas fa-medal" style="color: #c0c0c0;"></i>', '<i class="fas fa-award" style="color: #cd7f32;"></i>'];
+    
+    let leaderboardHTML = '';
+    examResults.forEach(exam => {
+        if (exam.students.length > 0) {
+            leaderboardHTML += `
+                <div style="margin-bottom: 32px;">
+                    <h3 style="color: #1e293b; margin-bottom: 16px;">${exam.title} - ${exam.subject}</h3>
+                    <div class="leaderboard-table">
+                        <div class="leaderboard-header">
+                            <div>Rank</div><div>Student</div><div>Score</div>
+                        </div>
+                        ${exam.students.map((student, index) => {
+                            const rank = index < 3 ? rankIcons[index] : `#${index + 1}`;
+                            const highlight = student.isCurrentUser ? 'style="background: #f0f4ff; border: 2px solid #667eea;"' : '';
+                            return `
+                                <div class="leaderboard-row" ${highlight}>
+                                    <div>${rank}</div>
+                                    <div>${student.name}${student.isCurrentUser ? ' (You)' : ''}</div>
+                                    <div>${student.score.toFixed(1)}%</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+    });
+    
+    container.innerHTML = leaderboardHTML;
+}
+
 function showNotification(message, type = 'success') {
     const toast = document.getElementById('notificationToast');
     const icon = toast.querySelector('.toast-icon');
@@ -707,8 +783,13 @@ function showLeaderboard() {
                             <option value="">All Exams</option>
                         </select>
                     </div>
+                    <div class="search-container">
+                        <label class="filter-label">Search Students</label>
+                        <input type="text" id="studentLeaderboardSearch" class="search-input" placeholder="Search by name or email..." onkeyup="filterStudentLeaderboard()">
+                    </div>
                     <div class="filter-actions">
                         <button class="btn btn-outline btn-sm" onclick="refreshStudentLeaderboard()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                        <button class="clear-filters" onclick="clearStudentLeaderboardFilters()"><i class="fas fa-times"></i> Clear</button>
                     </div>
                 </div>
                 <div id="leaderboardContainer">Loading...</div>
@@ -762,6 +843,7 @@ async function loadStudentLeaderboard() {
                 
                 examStudents.push({
                     name: userData?.name || 'Unknown',
+                    email: userData?.email || '',
                     score: percentage,
                     isCurrentUser: studentId === currentUser.uid
                 });
@@ -814,7 +896,8 @@ async function loadStudentLeaderboard() {
             }
         });
         
-        container.innerHTML = leaderboardHTML;
+        allStudentLeaderboardData = examResults;
+        displayStudentLeaderboardData(examResults);
         
     } catch (error) {
         console.error('Student leaderboard error:', error);

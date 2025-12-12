@@ -2567,12 +2567,16 @@ function showLeaderboard() {
                     </div>
                     <div class="filter-group">
                         <label class="filter-label">Performance</label>
-                        <select id="teacherLeaderboardPerformanceFilter" class="filter-select" onchange="loadLeaderboard()">
+                        <select id="teacherLeaderboardPerformanceFilter" class="filter-select" onchange="displayLeaderboard()">
                             <option value="">All Students</option>
                             <option value="high">High Performers (>=70%)</option>
                             <option value="medium">Average Performers (50-69%)</option>
                             <option value="low">Needs Improvement (<50%)</option>
                         </select>
+                    </div>
+                    <div class="search-container">
+                        <label class="filter-label">Search Students</label>
+                        <input type="text" id="leaderboardSearch" class="search-input" placeholder="Search by name or email..." onkeyup="displayLeaderboard()">
                     </div>
                     <div class="filter-actions">
                         <button class="btn btn-outline btn-sm" onclick="refreshLeaderboard()"><i class="fas fa-sync-alt"></i> Refresh</button>
@@ -2594,6 +2598,7 @@ let allLeaderboardData = [];
 async function loadLeaderboard() {
     const container = document.getElementById('leaderboardContainer');
     const examFilter = document.getElementById('teacherLeaderboardExamFilter');
+    const currentSelection = examFilter?.value || '';
     
     try {
         const examSnapshot = await db.collection('exams')
@@ -2604,6 +2609,11 @@ async function loadLeaderboard() {
         if (examFilter) {
             examFilter.innerHTML = '<option value="">All Exams</option>' + 
                 examSnapshot.docs.map(doc => `<option value="${doc.id}">${doc.data().title} - ${doc.data().subject}</option>`).join('');
+            
+            // Restore previous selection
+            if (currentSelection) {
+                examFilter.value = currentSelection;
+            }
         }
         
         const examResults = [];
@@ -2627,6 +2637,7 @@ async function loadLeaderboard() {
                 
                 examStudents.push({
                     name: userData?.name || 'Unknown',
+                    email: userData?.email || '',
                     score: percentage,
                     examCount: 1,
                     suspiciousActivity: submission.suspiciousActivity?.length || 0,
@@ -2663,6 +2674,7 @@ function displayLeaderboard() {
     
     let filteredData = allLeaderboardData;
     
+    // Filter by specific exam if selected
     if (selectedExamId) {
         filteredData = filteredData.filter(exam => exam.examId === selectedExamId);
     }
@@ -2678,12 +2690,15 @@ function displayLeaderboard() {
     }
     
     let leaderboardHTML = '';
+    let hasResults = false;
+    
     filteredData.forEach(exam => {
         let students = exam.students;
         
         if (searchTerm) {
             students = students.filter(student => 
-                student.name.toLowerCase().includes(searchTerm)
+                student.name.toLowerCase().includes(searchTerm) ||
+                (student.email && student.email.toLowerCase().includes(searchTerm))
             );
         }
         
@@ -2698,6 +2713,7 @@ function displayLeaderboard() {
         }
         
         if (students.length > 0) {
+            hasResults = true;
             const rankIcons = ['<i class="fas fa-trophy" style="color: #ffd700;"></i>', '<i class="fas fa-medal" style="color: #c0c0c0;"></i>', '<i class="fas fa-award" style="color: #cd7f32;"></i>'];
             
             leaderboardHTML += `
@@ -2724,7 +2740,7 @@ function displayLeaderboard() {
         }
     });
     
-    container.innerHTML = leaderboardHTML || `
+    container.innerHTML = hasResults ? leaderboardHTML : `
         <div style="text-align: center; padding: 40px;">
             <i class="fas fa-search" style="font-size: 48px; margin-bottom: 16px;"></i>
             <h3>No results found</h3>
@@ -2742,11 +2758,16 @@ function refreshLeaderboard() {
     loadLeaderboard();
 }
 
+function filterLeaderboard() {
+    displayLeaderboard();
+}
+
 function clearLeaderboardFilters() {
     document.getElementById('teacherLeaderboardExamFilter').value = '';
     document.getElementById('teacherLeaderboardPerformanceFilter').value = '';
-    if (document.getElementById('leaderboardSearch')) {
-        document.getElementById('leaderboardSearch').value = '';
+    const searchInput = document.getElementById('leaderboardSearch');
+    if (searchInput) {
+        searchInput.value = '';
     }
     displayLeaderboard();
 }
