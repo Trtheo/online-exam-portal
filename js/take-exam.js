@@ -430,7 +430,7 @@ function initAntiCheat() {
         logSuspiciousActivity('Right-click attempted');
     });
     
-    // Disable copy/paste/cut
+    // Disable copy/paste/cut and screenshot keys
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'x' || e.key === 'a')) {
             e.preventDefault();
@@ -440,6 +440,11 @@ function initAntiCheat() {
             e.preventDefault();
             logSuspiciousActivity('Developer tools access attempted');
         }
+        // Block screenshot keys
+        if (e.key === 'PrintScreen' || (e.ctrlKey && e.shiftKey && e.key === 'S') || (e.altKey && e.key === 'PrintScreen')) {
+            e.preventDefault();
+            logSuspiciousActivity('Screenshot attempt detected');
+        }
     });
     
     // Tab switch detection
@@ -448,7 +453,7 @@ function initAntiCheat() {
             tabSwitchCount++;
             logSuspiciousActivity(`Tab switched away (${tabSwitchCount} times)`);
             if (tabSwitchCount >= 3) {
-                alert('Warning: Multiple tab switches detected. Continued suspicious activity may result in exam termination.');
+                showRefreshModal();
             }
         }
     });
@@ -456,7 +461,7 @@ function initAntiCheat() {
     // Request fullscreen
     requestFullScreen();
     
-    // Monitor fullscreen changes with all browser prefixes
+    // Monitor fullscreen changes
     const fullscreenEvents = ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'];
     
     fullscreenEvents.forEach(event => {
@@ -467,7 +472,6 @@ function initAntiCheat() {
                 isFullScreen = false;
                 logSuspiciousActivity('Exited fullscreen mode');
                 
-                // Show modal and re-request
                 setTimeout(() => {
                     if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement) {
                         showFullscreenModal();
@@ -490,6 +494,12 @@ function initAntiCheat() {
             requestFullScreen();
         }
     }, 5000);
+    
+    // Detect page refresh
+    if (performance.navigation.type === 1) {
+        logSuspiciousActivity('Page refresh detected');
+        setTimeout(() => showRefreshModal(), 1000);
+    }
 }
 
 function requestFullScreen() {
@@ -504,6 +514,14 @@ function logSuspiciousActivity(activity) {
 
 function cancelExam() {
     showLeaveModal();
+}
+
+function showRefreshModal() {
+    document.getElementById('refreshModal').classList.remove('hidden');
+}
+
+function hideRefreshModal() {
+    document.getElementById('refreshModal').classList.add('hidden');
 }
 
 // Initialize anti-cheat when exam starts
