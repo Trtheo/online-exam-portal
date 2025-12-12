@@ -524,20 +524,25 @@ function hideRefreshModal() {
     document.getElementById('refreshModal').classList.add('hidden');
 }
 
-// Initialize anti-cheat when exam starts
+function enterSecureMode() {
+    document.getElementById('fullscreenPrep').style.display = 'none';
+    document.getElementById('examInterface').classList.remove('hidden');
+    
+    setTimeout(() => {
+        forceFullscreen();
+        initAntiCheat();
+        startTimer();
+        displayQuestion();
+    }, 500);
+}
+
+// Initialize exam data when page loads
 auth.onAuthStateChanged(async (user) => {
     if (user) {
         currentUser = user;
         await loadExam();
         await loadQuestions();
-        
-        // Force fullscreen immediately after confirmation
-        setTimeout(() => {
-            forceFullscreen();
-            initAntiCheat();
-            startTimer();
-            displayQuestion();
-        }, 500);
+        // Show preparation screen - don't start exam automatically
     } else {
         window.location.href = 'index.html';
     }
@@ -546,22 +551,20 @@ auth.onAuthStateChanged(async (user) => {
 function forceFullscreen() {
     const elem = document.documentElement;
     
-    if (elem.requestFullscreen) {
-        elem.requestFullscreen({ navigationUI: "hide" });
-    } else if (elem.webkitRequestFullscreen) {
-        elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-    } else if (elem.mozRequestFullScreen) {
-        elem.mozRequestFullScreen();
-    } else if (elem.msRequestFullscreen) {
-        elem.msRequestFullscreen();
-    }
+    const fullscreenPromise = elem.requestFullscreen ? 
+        elem.requestFullscreen({ navigationUI: "hide" }) :
+        elem.webkitRequestFullscreen ? 
+        elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT) :
+        elem.mozRequestFullScreen ? 
+        elem.mozRequestFullScreen() :
+        elem.msRequestFullscreen ? 
+        elem.msRequestFullscreen() : null;
     
-    // Retry if not successful
-    setTimeout(() => {
-        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-            forceFullscreen();
-        }
-    }, 1000);
+    if (fullscreenPromise) {
+        fullscreenPromise.catch(() => {
+            setTimeout(() => forceFullscreen(), 1000);
+        });
+    }
 }
 
 // Clear saved answers after submission
