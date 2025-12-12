@@ -95,6 +95,12 @@ document.getElementById('login').addEventListener('submit', async (e) => {
     
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    // Show loading
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
     
     try {
         const userCredential = await auth.signInWithEmailAndPassword(email, password);
@@ -112,6 +118,10 @@ document.getElementById('login').addEventListener('submit', async (e) => {
         }
     } catch (error) {
         showToast(getErrorMessage(error), 'error');
+    } finally {
+        // Reset button
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
     }
 });
 
@@ -123,6 +133,8 @@ document.getElementById('register').addEventListener('submit', async (e) => {
     const email = document.getElementById('registerEmail').value.trim().toLowerCase();
     const password = document.getElementById('registerPassword').value;
     const role = 'student';
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
     
     // Basic validation
     if (!name || !email || !password) {
@@ -134,6 +146,10 @@ document.getElementById('register').addEventListener('submit', async (e) => {
         showToast('Password must be at least 6 characters long', 'error');
         return;
     }
+    
+    // Show loading
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account...';
     
     try {
         // Check if user already exists in Firestore first
@@ -160,6 +176,10 @@ document.getElementById('register').addEventListener('submit', async (e) => {
     } catch (error) {
         console.error('Registration error:', error);
         showToast(getErrorMessage(error), 'error');
+    } finally {
+        // Reset button
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
     }
 });
 
@@ -202,6 +222,12 @@ function confirmLogout() {
 document.getElementById('forgot').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('forgotEmail').value;
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    // Show loading
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
     
     const actionCodeSettings = {
         url: window.location.origin + '/index.html',
@@ -214,5 +240,9 @@ document.getElementById('forgot').addEventListener('submit', async (e) => {
         setTimeout(() => showLogin(), 1500);
     } catch (error) {
         showToast(getErrorMessage(error), 'error');
+    } finally {
+        // Reset button
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
     }
 });

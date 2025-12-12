@@ -1637,17 +1637,30 @@ function viewSubmissions(examId) {
     showExamResults(examId);
 }
 
-async function publishExam(examId) {
-    if (confirm('Are you sure you want to publish this exam? Students will be able to see and take it.')) {
-        try {
-            await db.collection('exams').doc(examId).update({
-                published: true
-            });
-            showNotification('Exam published successfully!');
-            loadDashboardData();
-        } catch (error) {
-            alert('Error publishing exam: ' + error.message);
-        }
+let currentPublishExamId = null;
+
+function publishExam(examId) {
+    currentPublishExamId = examId;
+    document.getElementById('publishModal').classList.remove('hidden');
+}
+
+function hidePublishModal() {
+    document.getElementById('publishModal').classList.add('hidden');
+    currentPublishExamId = null;
+}
+
+async function confirmPublishExam() {
+    if (!currentPublishExamId) return;
+    
+    try {
+        await db.collection('exams').doc(currentPublishExamId).update({
+            published: true
+        });
+        showNotification('Exam published successfully!');
+        hidePublishModal();
+        loadDashboardData();
+    } catch (error) {
+        showNotification('Error publishing exam: ' + error.message, 'error');
     }
 }
 
@@ -2861,6 +2874,7 @@ document.addEventListener('click', (e) => {
     const successModal = document.getElementById('successModal');
     const logoutModal = document.getElementById('logoutModal');
     const deleteModal = document.getElementById('deleteModal');
+    const publishModal = document.getElementById('publishModal');
     
     if (e.target === editModal) {
         hideEditExam();
@@ -2874,5 +2888,7 @@ document.addEventListener('click', (e) => {
         hideLogoutModal();
     } else if (e.target === deleteModal) {
         hideDeleteModal();
+    } else if (e.target === publishModal) {
+        hidePublishModal();
     }
 });
