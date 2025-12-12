@@ -25,9 +25,35 @@ async function loadExam() {
         const examDoc = await db.collection('exams').doc(currentExamId).get();
         if (examDoc.exists) {
             examData = examDoc.data();
+            
+            // Check exam status
+            const now = new Date();
+            const startTime = examData.startTime ? examData.startTime.toDate() : null;
+            const endTime = examData.endTime ? examData.endTime.toDate() : null;
+            
+            let status = 'DRAFT';
+            if (examData.published) {
+                if (startTime && endTime) {
+                    if (now < startTime) {
+                        status = 'UPCOMING';
+                    } else if (now >= startTime && now <= endTime) {
+                        status = 'LIVE';
+                    } else if (now > endTime) {
+                        status = 'EXPIRED';
+                    }
+                }
+            }
+            
             document.getElementById('examTitle').innerHTML = `<i class="fas fa-clipboard-check"></i> ${examData.title}`;
-            document.getElementById('examSubject').textContent = examData.subject;
+            document.getElementById('examSubject').textContent = `${examData.subject} • ${status}`;
             timeRemaining = examData.duration * 60;
+            
+            // Prevent access if exam is not live
+            if (status !== 'LIVE') {
+                alert(`This exam is ${status}. You cannot take it at this time.`);
+                window.location.href = 'student-dashboard.html';
+                return;
+            }
         }
     } catch (error) {
         console.error('Error loading exam:', error);
@@ -253,8 +279,10 @@ function startTimer() {
         
         if (timeRemaining <= 0) {
             clearInterval(examTimer);
-            alert('Time is up! Submitting exam automatically.');
-            confirmSubmit();
+            showSuccessModal();
+            setTimeout(() => {
+                confirmSubmit();
+            }, 1000);
         }
     }, 1000);
 }
@@ -277,9 +305,36 @@ function hideSubmitModal() {
     document.getElementById('submitModal').classList.add('hidden');
 }
 
+function showFullscreenModal() {
+    document.getElementById('fullscreenModal').classList.remove('hidden');
+}
+
+function hideFullscreenModal() {
+    document.getElementById('fullscreenModal').classList.add('hidden');
+}
+
+function showSuccessModal() {
+    document.getElementById('successModal').classList.remove('hidden');
+}
+
+function showLeaveModal() {
+    document.getElementById('leaveModal').classList.remove('hidden');
+}
+
+function hideLeaveModal() {
+    document.getElementById('leaveModal').classList.add('hidden');
+}
+
+let shouldLeave = false;
+function confirmLeave() {
+    shouldLeave = true;
+    window.location.href = 'student-dashboard.html';
+}
+
 async function confirmSubmit() {
     hideSubmitModal();
     clearInterval(examTimer);
+    shouldLeave = true;
     
     try {
         const submissionData = {
@@ -295,8 +350,10 @@ async function confirmSubmit() {
         await db.collection('submissions').doc(currentExamId)
             .collection('students').doc(currentUser.uid).set(submissionData);
         
-        alert('Exam submitted successfully!');
-        window.location.href = 'student-dashboard.html';
+        showSuccessModal();
+        setTimeout(() => {
+            window.location.href = 'student-dashboard.html';
+        }, 2000);
     } catch (error) {
         alert('Error submitting exam: ' + error.message);
     }
@@ -319,11 +376,27 @@ window.addEventListener('load', () => {
 
 // Prevent page refresh/close during exam
 window.addEventListener('beforeunload', (e) => {
-    if (examTimer) {
+    if (examTimer && !shouldLeave) {
         e.preventDefault();
-        e.returnValue = 'Are you sure you want to leave? Your progress will be lost.';
+        e.returnValue = '';
+        setTimeout(() => {
+            showLeaveModal();
+        }, 100);
+        return '';
     }
 });
+
+// Handle browser back button
+window.addEventListener('popstate', (e) => {
+    if (examTimer && !shouldLeave) {
+        e.preventDefault();
+        showLeaveModal();
+        history.pushState(null, null, window.location.pathname);
+    }
+});
+
+// Push initial state to handle back button
+history.pushState(null, null, window.location.pathname);
 
 // Anti-cheat features
 function initAntiCheat() {
@@ -359,32 +432,63 @@ function initAntiCheat() {
     // Request fullscreen
     requestFullScreen();
     
-    // Monitor fullscreen changes
-    document.addEventListener('fullscreenchange', () => {
-        if (!document.fullscreenElement) {
-            isFullScreen = false;
-            logSuspiciousActivity('Exited fullscreen mode');
-            setTimeout(() => {
-                if (!document.fullscreenElement) {
-                    alert('Please return to fullscreen mode to continue the exam.');
-                    requestFullScreen();
-                }
-            }, 2000);
-        } else {
-            isFullScreen = true;
-        }
+    // Monitor fullscreen changes with all browser prefixes
+    const fullscreenEvents = ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'];
+    
+    fullscreenEvents.forEach(event => {
+        document.addEventListener(event, () => {
+            const isInFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+            
+            if (!isInFullscreen) {
+                isFullScreen = false;
+                logSuspiciousActivity('Exited fullscreen mode');
+                
+                // Show modal and re-request
+                setTimeout(() => {
+                    if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement) {
+                        showFullscreenModal();
+                        setTimeout(() => {
+                            requestFullScreen();
+                        }, 2000);
+                    }
+                }, 500);
+            } else {
+                isFullScreen = true;
+            }
+        });
     });
+    
+    // Periodic fullscreen check
+    setInterval(() => {
+        const isInFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+        if (!isInFullscreen && examTimer) {
+            logSuspiciousActivity('Not in fullscreen mode detected');
+            requestFullScreen();
+        }
+    }, 5000);
 }
 
 function requestFullScreen() {
     const elem = document.documentElement;
     if (elem.requestFullscreen) {
-        elem.requestFullscreen().catch(() => {});
+        elem.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
     } else if (elem.webkitRequestFullscreen) {
-        elem.webkitRequestFullscreen();
+        elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+    } else if (elem.mozRequestFullScreen) {
+        elem.mozRequestFullScreen();
     } else if (elem.msRequestFullscreen) {
         elem.msRequestFullscreen();
     }
+    
+    // Force fullscreen with additional methods
+    setTimeout(() => {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement) {
+            // Try alternative fullscreen API
+            if (document.body.webkitRequestFullscreen) {
+                document.body.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+            }
+        }
+    }, 1000);
 }
 
 function logSuspiciousActivity(activity) {
@@ -399,6 +503,7 @@ auth.onAuthStateChanged(async (user) => {
         currentUser = user;
         await loadExam();
         await loadQuestions();
+        requestFullScreen();
         initAntiCheat();
         startTimer();
         displayQuestion();

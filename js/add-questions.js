@@ -1,5 +1,8 @@
 let currentExamId = null;
 let currentUser = null;
+let questionEditor = null;
+let allQuestions = [];
+let importedQuestions = [];
 
 // Get exam ID from URL
 const urlParams = new URLSearchParams(window.location.search);
@@ -9,11 +12,45 @@ if (!currentExamId) {
     window.location.href = 'teacher-dashboard.html';
 }
 
+// Initialize Quill editor
+document.addEventListener('DOMContentLoaded', () => {
+    const editorElement = document.getElementById('questionEditor');
+    if (editorElement) {
+        questionEditor = new Quill('#questionEditor', {
+            theme: 'snow',
+            modules: {
+                toolbar: [
+                    ['bold', 'italic', 'underline'],
+                    ['link', 'image'],
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    ['clean']
+                ]
+            },
+            placeholder: 'Enter your question here...'
+        });
+    }
+});
+
 auth.onAuthStateChanged(async (user) => {
     if (user) {
         currentUser = user;
         loadExamDetails();
         loadQuestions();
+        
+        // Initialize Quill editor
+        if (!questionEditor) {
+            questionEditor = new Quill('#questionEditor', {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        ['bold', 'italic', 'underline'],
+                        ['link'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }]
+                    ]
+                },
+                placeholder: 'Enter your question text...'
+            });
+        }
     } else {
         window.location.href = 'index.html';
     }
@@ -25,119 +62,228 @@ async function loadExamDetails() {
         if (examDoc.exists) {
             const exam = examDoc.data();
             document.getElementById('examTitle').textContent = exam.title;
+            document.getElementById('examDuration').textContent = exam.duration || 0;
         }
     } catch (error) {
         console.error('Error loading exam:', error);
     }
 }
 
-function toggleOptions() {
-    const type = document.getElementById('questionType').value;
+// Show question form
+function showQuestionForm(type) {
+    const formCard = document.getElementById('questionFormCard');
+    const formTitle = document.getElementById('formTitle');
+    const mcqSection = document.getElementById('mcqSection');
+    const tfSection = document.getElementById('tfSection');
+    const shortSection = document.getElementById('shortSection');
     
-    document.getElementById('mcqOptions').classList.add('hidden');
-    document.getElementById('tfOptions').classList.add('hidden');
-    document.getElementById('shortOptions').classList.add('hidden');
+    // Reset form
+    document.getElementById('questionForm').reset();
+    if (questionEditor) {
+        questionEditor.setContents([]);
+    }
     
+    // Hide all sections
+    mcqSection.classList.add('hidden');
+    tfSection.classList.add('hidden');
+    if (shortSection) shortSection.classList.add('hidden');
+    
+    // Show appropriate section
     if (type === 'mcq') {
-        document.getElementById('mcqOptions').classList.remove('hidden');
+        mcqSection.classList.remove('hidden');
+        formTitle.innerHTML = '<i class="fas fa-list-ul"></i> Add Multiple Choice Question';
     } else if (type === 'tf') {
-        document.getElementById('tfOptions').classList.remove('hidden');
+        tfSection.classList.remove('hidden');
+        formTitle.innerHTML = '<i class="fas fa-check-circle"></i> Add True/False Question';
     } else if (type === 'short') {
-        document.getElementById('shortOptions').classList.remove('hidden');
+        if (shortSection) shortSection.classList.remove('hidden');
+        formTitle.innerHTML = '<i class="fas fa-edit"></i> Add Short Answer Question';
+    }
+    
+    formCard.classList.remove('hidden');
+    if (questionEditor) {
+        questionEditor.focus();
     }
 }
 
-document.getElementById('questionForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
+function hideQuestionForm() {
+    document.getElementById('questionFormCard').classList.add('hidden');
+}
+
+async function saveQuestion() {
     
-    const questionText = document.getElementById('questionText').value;
-    const questionType = document.getElementById('questionType').value;
+    const questionText = questionEditor.root.innerHTML;
     const marks = parseInt(document.getElementById('questionMarks').value);
+    
+    if (!questionText.trim() || questionText === '<p><br></p>') {
+        showNotificationModal('Error', 'Please enter a question');
+        return;
+    }
     
     let questionData = {
         questionText,
-        type: questionType,
         marks,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     
-    if (questionType === 'mcq') {
+    // Determine question type based on visible section
+    if (!document.getElementById('mcqSection').classList.contains('hidden')) {
         const options = [
+            document.getElementById('option0').value,
             document.getElementById('option1').value,
             document.getElementById('option2').value,
-            document.getElementById('option3').value,
-            document.getElementById('option4').value
+            document.getElementById('option3').value
         ];
-        const correctAnswer = parseInt(document.getElementById('correctOption').value);
         
+        const correctAnswer = document.querySelector('input[name="correctAnswer"]:checked');
+        
+        if (options.some(opt => !opt.trim())) {
+            showNotificationModal('Error', 'Please fill all options');
+            return;
+        }
+        
+        if (!correctAnswer) {
+            showNotificationModal('Error', 'Please select the correct answer');
+            return;
+        }
+        
+        questionData.type = 'mcq';
         questionData.options = options;
-        questionData.correctAnswer = correctAnswer;
-    } else if (questionType === 'tf') {
-        questionData.correctAnswer = document.getElementById('tfAnswer').value === 'true';
-    } else if (questionType === 'short') {
-        questionData.sampleAnswer = document.getElementById('sampleAnswer').value;
+        questionData.correctAnswer = parseInt(correctAnswer.value);
+    } else if (!document.getElementById('tfSection').classList.contains('hidden')) {
+        const tfAnswer = document.querySelector('input[name="tfAnswer"]:checked');
+        
+        if (!tfAnswer) {
+            showNotificationModal('Error', 'Please select True or False');
+            return;
+        }
+        
+        questionData.type = 'tf';
+        questionData.correctAnswer = tfAnswer.value === 'true';
+    } else if (!document.getElementById('shortSection').classList.contains('hidden')) {
+        const sampleAnswer = document.getElementById('sampleAnswer')?.value || '';
+        
+        questionData.type = 'short';
+        questionData.sampleAnswer = sampleAnswer;
     }
     
     try {
         await db.collection('exams').doc(currentExamId)
             .collection('questions').add(questionData);
         
-        document.getElementById('questionForm').reset();
-        toggleOptions();
+        hideQuestionForm();
         loadQuestions();
-        alert('Question added successfully!');
+        showNotificationModal('Success', 'Question added successfully!');
     } catch (error) {
-        alert('Error adding question: ' + error.message);
+        showNotificationModal('Error', 'Error adding question: ' + error.message);
     }
-});
+}
 
 async function loadQuestions() {
     try {
         const snapshot = await db.collection('exams').doc(currentExamId)
             .collection('questions').orderBy('createdAt').get();
         
-        const questionsList = document.getElementById('questionsList');
-        questionsList.innerHTML = '';
+        allQuestions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
-        document.getElementById('questionCount').textContent = snapshot.size;
-        
-        snapshot.forEach((doc, index) => {
-            const question = doc.data();
-            const questionDiv = createQuestionDisplay(doc.id, question, index + 1);
-            questionsList.appendChild(questionDiv);
-        });
+        updateStats();
+        displayQuestions(allQuestions);
     } catch (error) {
         console.error('Error loading questions:', error);
     }
 }
 
-function createQuestionDisplay(questionId, question, index) {
-    const div = document.createElement('div');
-    div.className = 'question-display';
-    div.style.cssText = 'border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px;';
+function updateStats() {
+    const mcqCount = allQuestions.filter(q => q.type === 'mcq').length;
+    const tfCount = allQuestions.filter(q => q.type === 'tf').length;
+    const shortCount = allQuestions.filter(q => q.type === 'short').length;
+    const totalMarks = allQuestions.reduce((sum, q) => sum + (q.marks || 1), 0);
     
-    let optionsHtml = '';
-    if (question.type === 'mcq') {
-        optionsHtml = question.options.map((opt, i) => 
-            `<p style="margin: 5px 0; ${i === question.correctAnswer ? 'color: green; font-weight: bold;' : ''}">
-                ${String.fromCharCode(65 + i)}. ${opt} ${i === question.correctAnswer ? '✓' : ''}
-            </p>`
-        ).join('');
-    } else if (question.type === 'tf') {
-        optionsHtml = `<p style="color: green; font-weight: bold;">Answer: ${question.correctAnswer ? 'True' : 'False'}</p>`;
-    } else if (question.type === 'short') {
-        optionsHtml = `<p><strong>Sample Answer:</strong> ${question.sampleAnswer || 'Not provided'}</p>`;
+    const questionCountEl = document.getElementById('questionCount');
+    const mcqCountEl = document.getElementById('mcqCount');
+    const tfCountEl = document.getElementById('tfCount');
+    const shortCountEl = document.getElementById('shortCount');
+    const totalMarksEl = document.getElementById('totalMarks');
+    
+    if (questionCountEl) questionCountEl.textContent = allQuestions.length;
+    if (mcqCountEl) mcqCountEl.textContent = mcqCount;
+    if (tfCountEl) tfCountEl.textContent = tfCount;
+    if (shortCountEl) shortCountEl.textContent = shortCount;
+    if (totalMarksEl) totalMarksEl.textContent = totalMarks;
+    
+    const totalQuestionCountEl = document.getElementById('totalQuestionCount');
+    if (totalQuestionCountEl) totalQuestionCountEl.textContent = allQuestions.length;
+}
+
+function displayQuestions(questions) {
+    const questionsList = document.getElementById('questionsList');
+    
+    if (questions.length === 0) {
+        questionsList.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-question-circle"></i>
+                <h4>No questions yet</h4>
+                <p>Start by adding your first question</p>
+            </div>
+        `;
+        return;
     }
     
-    div.innerHTML = `
-        <h4>Question ${index} (${question.marks} marks)</h4>
-        <p><strong>${question.questionText}</strong></p>
-        <p><em>Type: ${question.type.toUpperCase()}</em></p>
-        ${optionsHtml}
-        <button class="btn btn-danger" onclick="deleteQuestion('${questionId}')" style="margin-top: 10px;">Delete</button>
-    `;
+    questionsList.innerHTML = questions.map((question, index) => 
+        createQuestionItem(question, index + 1)
+    ).join('');
+}
+
+function createQuestionItem(question, index) {
+    let optionsHtml = '';
     
-    return div;
+    if (question.type === 'mcq') {
+        optionsHtml = `
+            <div class="question-options">
+                ${question.options.map((opt, i) => `
+                    <div class="option-display ${i === question.correctAnswer ? 'correct' : ''}">
+                        ${String.fromCharCode(65 + i)}. ${opt}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } else if (question.type === 'tf') {
+        optionsHtml = `
+            <div class="tf-answer">
+                <span class="tf-label ${question.correctAnswer ? 'true' : 'false'}">
+                    ${question.correctAnswer ? 'True' : 'False'}
+                </span>
+            </div>
+        `;
+    } else if (question.type === 'short') {
+        optionsHtml = `
+            <div class="short-answer-info">
+                <div class="answer-type">Short Answer Question</div>
+                ${question.sampleAnswer ? `<div class="sample-answer"><strong>Sample Answer:</strong> ${question.sampleAnswer}</div>` : ''}
+            </div>
+        `;
+    }
+    
+    return `
+        <div class="question-item">
+            <div class="question-header">
+                <div class="question-meta">
+                    <span class="question-type type-${question.type}">${question.type === 'short' ? 'SHORT' : question.type.toUpperCase()}</span>
+                    <span class="question-marks">${question.marks} mark${question.marks !== 1 ? 's' : ''}</span>
+                </div>
+                <div class="question-actions">
+                    <button class="btn btn-outline btn-sm" onclick="editQuestion('${question.id}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteQuestion('${question.id}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="question-text">${question.questionText}</div>
+            ${optionsHtml}
+        </div>
+    `;
 }
 
 async function deleteQuestion(questionId) {
@@ -146,8 +292,9 @@ async function deleteQuestion(questionId) {
             await db.collection('exams').doc(currentExamId)
                 .collection('questions').doc(questionId).delete();
             loadQuestions();
+            showNotificationModal('Success', 'Question deleted successfully!');
         } catch (error) {
-            alert('Error deleting question: ' + error.message);
+            showNotificationModal('Error', 'Error deleting question: ' + error.message);
         }
     }
 }
@@ -156,122 +303,192 @@ function goBack() {
     window.location.href = 'teacher-dashboard.html';
 }
 
-let importedQuestions = [];
 
-function showBulkImport() {
-    document.getElementById('bulkImportModal').classList.remove('hidden');
-}
 
-function hideBulkImport() {
-    document.getElementById('bulkImportModal').classList.add('hidden');
-    document.getElementById('csvFile').value = '';
-    document.getElementById('jsonData').value = '';
-    document.getElementById('importPreview').classList.add('hidden');
-    document.getElementById('importBtn').disabled = true;
-    importedQuestions = [];
-}
-
-function handleFileUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
+function filterQuestions() {
+    const searchTerm = document.getElementById('questionSearch').value.toLowerCase();
+    const typeFilter = document.getElementById('typeFilter').value;
     
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const csv = e.target.result;
-        parseCSVData(csv);
-    };
-    reader.readAsText(file);
-}
-
-function parseCSVData(csv) {
-    const lines = csv.split('\n').filter(line => line.trim());
-    const questions = [];
+    let filtered = allQuestions;
     
-    for (let i = 0; i < lines.length; i++) {
-        const cols = lines[i].split(',').map(col => col.trim().replace(/^"|"$/g, ''));
-        
-        if (cols.length < 6) continue;
-        
-        const question = {
-            questionText: cols[0],
-            type: cols[1],
-            marks: parseInt(cols[cols.length - 1]) || 1
-        };
-        
-        if (question.type === 'mcq') {
-            question.options = [cols[2], cols[3], cols[4], cols[5]];
-            question.correctAnswer = parseInt(cols[6]) || 0;
-        } else if (question.type === 'tf') {
-            question.correctAnswer = cols[2].toLowerCase() === 'true';
-        } else if (question.type === 'short') {
-            question.sampleAnswer = cols[2] || '';
-        }
-        
-        questions.push(question);
+    if (searchTerm) {
+        filtered = filtered.filter(q => 
+            q.questionText.toLowerCase().includes(searchTerm)
+        );
     }
     
-    importedQuestions = questions;
-    showPreview();
+    if (typeFilter) {
+        filtered = filtered.filter(q => q.type === typeFilter);
+    }
+    
+    displayQuestions(filtered);
 }
 
-function parseJsonData() {
+let editQuestionEditor = null;
+let currentEditQuestionId = null;
+
+async function editQuestion(questionId) {
     try {
-        const jsonText = document.getElementById('jsonData').value;
-        const questions = JSON.parse(jsonText);
+        const questionDoc = await db.collection('exams').doc(currentExamId)
+            .collection('questions').doc(questionId).get();
         
-        if (!Array.isArray(questions)) {
-            alert('JSON must be an array of questions');
+        if (!questionDoc.exists) {
+            showNotificationModal('Error', 'Question not found');
             return;
         }
         
-        importedQuestions = questions;
-        showPreview();
+        const question = questionDoc.data();
+        currentEditQuestionId = questionId;
+        
+        // Initialize edit editor if not exists
+        if (!editQuestionEditor) {
+            editQuestionEditor = new Quill('#editQuestionEditor', {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        ['bold', 'italic', 'underline'],
+                        ['link'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }]
+                    ]
+                },
+                placeholder: 'Enter your question text...'
+            });
+        }
+        
+        // Populate form
+        editQuestionEditor.root.innerHTML = question.questionText;
+        document.getElementById('editQuestionMarks').value = question.marks;
+        
+        // Show appropriate section
+        const editMcqSection = document.getElementById('editMcqSection');
+        const editTfSection = document.getElementById('editTfSection');
+        const editShortSection = document.getElementById('editShortSection');
+        
+        editMcqSection.classList.add('hidden');
+        editTfSection.classList.add('hidden');
+        if (editShortSection) editShortSection.classList.add('hidden');
+        
+        if (question.type === 'mcq') {
+            editMcqSection.classList.remove('hidden');
+            question.options.forEach((option, index) => {
+                document.getElementById(`editOption${index}`).value = option;
+            });
+            document.getElementById(`editCorrect${question.correctAnswer}`).checked = true;
+        } else if (question.type === 'tf') {
+            editTfSection.classList.remove('hidden');
+            document.querySelector(`input[name="editTfAnswer"][value="${question.correctAnswer}"`)?.click();
+        } else if (question.type === 'short') {
+            if (editShortSection) {
+                editShortSection.classList.remove('hidden');
+                document.getElementById('editSampleAnswer').value = question.sampleAnswer || '';
+            }
+        }
+        
+        document.getElementById('editQuestionModal').classList.remove('hidden');
+        
     } catch (error) {
-        alert('Invalid JSON format: ' + error.message);
+        showNotificationModal('Error', 'Error loading question: ' + error.message);
     }
 }
 
-function showPreview() {
-    const preview = document.getElementById('importPreview');
-    const previewList = document.getElementById('previewList');
-    const previewCount = document.getElementById('previewCount');
+function hideEditModal() {
+    document.getElementById('editQuestionModal').classList.add('hidden');
+    currentEditQuestionId = null;
+}
+
+async function updateQuestion() {
     
-    if (importedQuestions.length === 0) {
-        preview.classList.add('hidden');
+    if (!currentEditQuestionId) return;
+    
+    const questionText = editQuestionEditor.root.innerHTML;
+    const marks = parseInt(document.getElementById('editQuestionMarks').value);
+    
+    if (!questionText.trim() || questionText === '<p><br></p>') {
+        showNotificationModal('Error', 'Please enter a question');
         return;
     }
     
-    previewCount.textContent = importedQuestions.length;
+    let questionData = {
+        questionText,
+        marks,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
     
-    previewList.innerHTML = importedQuestions.map((q, index) => `
-        <div class="preview-question">
-            <strong>Q${index + 1}:</strong> ${q.questionText}<br>
-            <small>Type: ${q.type.toUpperCase()} | Marks: ${q.marks}</small>
-            ${q.options ? `<br><small>Options: ${q.options.join(', ')}</small>` : ''}
-        </div>
-    `).join('');
-    
-    preview.classList.remove('hidden');
-    document.getElementById('importBtn').disabled = false;
-}
-
-async function importQuestions() {
-    if (importedQuestions.length === 0) return;
+    // Determine question type
+    if (!document.getElementById('editMcqSection').classList.contains('hidden')) {
+        const options = [
+            document.getElementById('editOption0').value,
+            document.getElementById('editOption1').value,
+            document.getElementById('editOption2').value,
+            document.getElementById('editOption3').value
+        ];
+        
+        const correctAnswer = document.querySelector('input[name="editCorrectAnswer"]:checked');
+        
+        if (options.some(opt => !opt.trim())) {
+            showNotificationModal('Error', 'Please fill all options');
+            return;
+        }
+        
+        if (!correctAnswer) {
+            showNotificationModal('Error', 'Please select the correct answer');
+            return;
+        }
+        
+        questionData.type = 'mcq';
+        questionData.options = options;
+        questionData.correctAnswer = parseInt(correctAnswer.value);
+    } else if (!document.getElementById('editTfSection').classList.contains('hidden')) {
+        const tfAnswer = document.querySelector('input[name="editTfAnswer"]:checked');
+        
+        if (!tfAnswer) {
+            showNotificationModal('Error', 'Please select True or False');
+            return;
+        }
+        
+        questionData.type = 'tf';
+        questionData.correctAnswer = tfAnswer.value === 'true';
+    } else if (!document.getElementById('editShortSection').classList.contains('hidden')) {
+        const sampleAnswer = document.getElementById('editSampleAnswer')?.value || '';
+        
+        questionData.type = 'short';
+        questionData.sampleAnswer = sampleAnswer;
+    }
     
     try {
-        const batch = db.batch();
+        await db.collection('exams').doc(currentExamId)
+            .collection('questions').doc(currentEditQuestionId).update(questionData);
         
-        importedQuestions.forEach(question => {
-            const questionRef = db.collection('exams').doc(currentExamId)
-                .collection('questions').doc();
-            batch.set(questionRef, question);
-        });
-        
-        await batch.commit();
-        alert(`Successfully imported ${importedQuestions.length} questions!`);
-        hideBulkImport();
+        hideEditModal();
         loadQuestions();
+        showNotificationModal('Success', 'Question updated successfully!');
     } catch (error) {
-        alert('Error importing questions: ' + error.message);
+        showNotificationModal('Error', 'Error updating question: ' + error.message);
     }
+}
+
+function showNotificationModal(title, message) {
+    document.getElementById('notificationTitle').textContent = title;
+    document.getElementById('notificationMessage').textContent = message;
+    
+    const modal = document.getElementById('notificationModal');
+    const header = modal.querySelector('.modal-header');
+    const icon = header.querySelector('i');
+    
+    if (title === 'Success') {
+        icon.className = 'fas fa-check-circle';
+        header.style.background = 'linear-gradient(135deg, #16a34a, #059669)';
+    } else if (title === 'Error') {
+        icon.className = 'fas fa-exclamation-circle';
+        header.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+    } else {
+        icon.className = 'fas fa-info-circle';
+        header.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+function hideNotificationModal() {
+    document.getElementById('notificationModal').classList.add('hidden');
 }

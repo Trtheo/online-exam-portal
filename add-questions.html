@@ -3,118 +3,313 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add Questions - Online Exam Portal</title>
+    <title>Question Management - Online Exam Portal</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1><i class="fas fa-question-circle"></i> Add Questions</h1>
-        </header>
-        
-        <div class="dashboard">
-            <div class="dashboard-header">
-                <div class="user-info">
-                    <h2 id="examTitle">Loading...</h2>
-                    <p>Questions: <span id="questionCount">0</span></p>
+<body class="question-page">
+    <!-- Header -->
+    <header class="main-header">
+        <div class="header-content">
+            <div class="header-left">
+                <div class="logo"><i class="fas fa-graduation-cap"></i> ExamPortal</div>
+            </div>
+            <div class="header-center">
+                <h1 id="examTitle">Loading...</h1>
+                <div class="exam-stats">
+                    <span><i class="fas fa-question-circle"></i> <span id="questionCount">0</span> Questions</span>
+                    <span><i class="fas fa-clock"></i> <span id="examDuration">0</span> min</span>
                 </div>
-                <div style="display: flex; gap: 12px;">
-                    <button class="btn btn-outline" onclick="showBulkImport()"><i class="fas fa-upload"></i> Bulk Import</button>
-                    <button class="btn btn-danger" onclick="goBack()"><i class="fas fa-arrow-left"></i> Back to Dashboard</button>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-outline" onclick="goBack()"><i class="fas fa-arrow-left"></i> Back</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="question-management">
+        <!-- Sidebar -->
+        <div class="question-sidebar">
+            <div class="sidebar-section">
+                <h3><i class="fas fa-plus"></i> Add Questions</h3>
+                <div class="quick-actions">
+                    <button class="action-btn" onclick="showQuestionForm('mcq')">
+                        <i class="fas fa-list-ul"></i>
+                        <span>Multiple Choice</span>
+                    </button>
+                    <button class="action-btn" onclick="showQuestionForm('tf')">
+                        <i class="fas fa-check-circle"></i>
+                        <span>True/False</span>
+                    </button>
+                    <button class="action-btn" onclick="showQuestionForm('short')">
+                        <i class="fas fa-edit"></i>
+                        <span>Short Answer</span>
+                    </button>
+                    <button class="action-btn" onclick="showBulkImport()">
+                        <i class="fas fa-file-upload"></i>
+                        <span>Bulk Import</span>
+                    </button>
                 </div>
             </div>
             
-            <div class="question-form">
-                <h3><i class="fas fa-plus-circle"></i> Add New Question</h3>
-                <form id="questionForm">
-                    <div class="form-group">
-                        <label>Question Text:</label>
-                        <textarea id="questionText" rows="3" required></textarea>
+            <div class="sidebar-section">
+                <h3><i class="fas fa-chart-pie"></i> Overview</h3>
+                <div class="stats-mini">
+                    <div class="stat-mini">
+                        <div class="stat-value" id="mcqCount">0</div>
+                        <div class="stat-label">MCQ</div>
+                    </div>
+                    <div class="stat-mini">
+                        <div class="stat-value" id="tfCount">0</div>
+                        <div class="stat-label">T/F</div>
+                    </div>
+                    <div class="stat-mini">
+                        <div class="stat-value" id="shortCount">0</div>
+                        <div class="stat-label">Short</div>
+                    </div>
+                    <div class="stat-mini">
+                        <div class="stat-value" id="totalMarks">0</div>
+                        <div class="stat-label">Marks</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="question-main">
+            <!-- Question Form -->
+            <div id="questionFormCard" class="content-card hidden">
+                <div class="card-header">
+                    <h3 id="formTitle"><i class="fas fa-plus-circle"></i> Add New Question</h3>
+                    <button class="btn-icon" onclick="hideQuestionForm()"><i class="fas fa-times"></i></button>
+                </div>
+                <form id="questionForm" class="question-form">
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label>Question Text</label>
+                            <div id="questionEditor" style="height: 120px;"></div>
+                            <input type="hidden" id="questionText" required>
+                        </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label>Question Type:</label>
-                        <select id="questionType" onchange="toggleOptions()" required>
-                            <option value="">Select Type</option>
+                    <div id="mcqSection" class="form-section hidden">
+                        <label>Answer Options</label>
+                        <div class="options-grid">
+                            <div class="option-group">
+                                <input type="radio" name="correctAnswer" value="0" id="correct0">
+                                <input type="text" id="option0" placeholder="Option A" required>
+                                <label for="correct0" class="radio-label">A</label>
+                            </div>
+                            <div class="option-group">
+                                <input type="radio" name="correctAnswer" value="1" id="correct1">
+                                <input type="text" id="option1" placeholder="Option B" required>
+                                <label for="correct1" class="radio-label">B</label>
+                            </div>
+                            <div class="option-group">
+                                <input type="radio" name="correctAnswer" value="2" id="correct2">
+                                <input type="text" id="option2" placeholder="Option C" required>
+                                <label for="correct2" class="radio-label">C</label>
+                            </div>
+                            <div class="option-group">
+                                <input type="radio" name="correctAnswer" value="3" id="correct3">
+                                <input type="text" id="option3" placeholder="Option D" required>
+                                <label for="correct3" class="radio-label">D</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="tfSection" class="form-section hidden">
+                        <label>Correct Answer</label>
+                        <div class="tf-options">
+                            <label class="tf-option">
+                                <input type="radio" name="tfAnswer" value="true">
+                                <span class="tf-label true">True</span>
+                            </label>
+                            <label class="tf-option">
+                                <input type="radio" name="tfAnswer" value="false">
+                                <span class="tf-label false">False</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div id="shortSection" class="form-section hidden">
+                        <label>Sample Answer (Optional)</label>
+                        <textarea id="sampleAnswer" rows="3" placeholder="Enter a sample answer or key points for reference..."></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Marks</label>
+                            <input type="number" id="questionMarks" value="1" min="1" max="10" required>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-outline" onclick="hideQuestionForm()">Cancel</button>
+                            <button type="button" class="btn btn-primary" onclick="saveQuestion()"><i class="fas fa-save"></i> Save Question</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Questions List -->
+            <div class="content-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-list"></i> Questions (<span id="totalQuestionCount">0</span>)</h3>
+                    <div class="header-actions">
+                        <div class="search-box">
+                            <input type="text" id="questionSearch" placeholder="Search questions..." onkeyup="filterQuestions()">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <select id="typeFilter" onchange="filterQuestions()">
+                            <option value="">All Types</option>
                             <option value="mcq">Multiple Choice</option>
                             <option value="tf">True/False</option>
                             <option value="short">Short Answer</option>
                         </select>
                     </div>
-                    
-                    <div id="mcqOptions" class="form-group hidden">
-                        <label>Options:</label>
-                        <input type="text" id="option1" placeholder="Option A">
-                        <input type="text" id="option2" placeholder="Option B">
-                        <input type="text" id="option3" placeholder="Option C">
-                        <input type="text" id="option4" placeholder="Option D">
-                        <label>Correct Answer:</label>
-                        <select id="correctOption">
-                            <option value="0">Option A</option>
-                            <option value="1">Option B</option>
-                            <option value="2">Option C</option>
-                            <option value="3">Option D</option>
-                        </select>
+                </div>
+                <div id="questionsList" class="questions-container">
+                    <div class="empty-state">
+                        <i class="fas fa-question-circle"></i>
+                        <h4>No questions yet</h4>
+                        <p>Start by adding your first question</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Question Modal -->
+    <div id="editQuestionModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> Edit Question</h3>
+                <button class="btn-icon" onclick="hideEditModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="editQuestionForm">
+                <div class="modal-body">
+                    <div class="form-group full-width">
+                        <label>Question Text</label>
+                        <div id="editQuestionEditor" style="height: 120px;"></div>
+                        <input type="hidden" id="editQuestionText" required>
                     </div>
                     
-                    <div id="tfOptions" class="form-group hidden">
-                        <label>Correct Answer:</label>
-                        <select id="tfAnswer">
-                            <option value="true">True</option>
-                            <option value="false">False</option>
-                        </select>
+                    <div id="editMcqSection" class="form-section hidden">
+                        <label>Answer Options</label>
+                        <div class="options-grid">
+                            <div class="option-group">
+                                <input type="radio" name="editCorrectAnswer" value="0" id="editCorrect0">
+                                <input type="text" id="editOption0" placeholder="Option A" required>
+                                <label for="editCorrect0" class="radio-label">A</label>
+                            </div>
+                            <div class="option-group">
+                                <input type="radio" name="editCorrectAnswer" value="1" id="editCorrect1">
+                                <input type="text" id="editOption1" placeholder="Option B" required>
+                                <label for="editCorrect1" class="radio-label">B</label>
+                            </div>
+                            <div class="option-group">
+                                <input type="radio" name="editCorrectAnswer" value="2" id="editCorrect2">
+                                <input type="text" id="editOption2" placeholder="Option C" required>
+                                <label for="editCorrect2" class="radio-label">C</label>
+                            </div>
+                            <div class="option-group">
+                                <input type="radio" name="editCorrectAnswer" value="3" id="editCorrect3">
+                                <input type="text" id="editOption3" placeholder="Option D" required>
+                                <label for="editCorrect3" class="radio-label">D</label>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div id="shortOptions" class="form-group hidden">
-                        <label>Sample Answer:</label>
-                        <textarea id="sampleAnswer" rows="2" placeholder="Expected answer for reference"></textarea>
+                    <div id="editTfSection" class="form-section hidden">
+                        <label>Correct Answer</label>
+                        <div class="tf-options">
+                            <label class="tf-option">
+                                <input type="radio" name="editTfAnswer" value="true">
+                                <span class="tf-label true">True</span>
+                            </label>
+                            <label class="tf-option">
+                                <input type="radio" name="editTfAnswer" value="false">
+                                <span class="tf-label false">False</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div id="editShortSection" class="form-section hidden">
+                        <label>Sample Answer (Optional)</label>
+                        <textarea id="editSampleAnswer" rows="3" placeholder="Enter a sample answer or key points for reference..."></textarea>
                     </div>
                     
                     <div class="form-group">
-                        <label>Marks:</label>
-                        <input type="number" id="questionMarks" value="1" min="1" required>
+                        <label>Marks</label>
+                        <input type="number" id="editQuestionMarks" value="1" min="1" max="10" required>
                     </div>
-                    
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Add Question</button>
-                </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="hideEditModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="updateQuestion()"><i class="fas fa-save"></i> Update Question</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Notification Modal -->
+    <div id="notificationModal" class="modal hidden">
+        <div class="modal-content confirmation-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-info-circle"></i> <span id="notificationTitle">Notification</span></h3>
             </div>
-            
-            <div class="questions-list">
-                <h3><i class="fas fa-list"></i> Added Questions</h3>
-                <div id="questionsList"></div>
+            <div class="modal-body">
+                <p id="notificationMessage">Message</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="hideNotificationModal()">OK</button>
             </div>
         </div>
     </div>
     
     <!-- Bulk Import Modal -->
     <div id="bulkImportModal" class="modal hidden">
-        <div class="modal-content">
+        <div class="modal-content large-modal">
             <div class="modal-header">
-                <h3><i class="fas fa-upload"></i> Bulk Import Questions</h3>
+                <h3><i class="fas fa-robot"></i> Smart Question Import</h3>
                 <button class="btn-icon" onclick="hideBulkImport()"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
-                <div class="import-options">
-                    <div class="import-method">
-                        <h4>Upload CSV File</h4>
-                        <input type="file" id="csvFile" accept=".csv" onchange="handleFileUpload(event)">
-                        <p class="help-text">CSV format: questionText,type,option1,option2,option3,option4,correctAnswer,marks</p>
+                <div class="import-tabs">
+                    <button class="tab-btn active" onclick="switchTab('document')">Document Upload</button>
+                    <button class="tab-btn" onclick="switchTab('manual')">Manual Import</button>
+                </div>
+                
+                <div id="documentTab" class="tab-content">
+                    <div class="upload-zone" onclick="document.getElementById('documentFile').click()">
+                        <input type="file" id="documentFile" accept=".pdf,.doc,.docx,.csv,.json" hidden onchange="handleDocumentUpload(event)">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <h4>Upload Document</h4>
+                        <p>Supports PDF, Word, CSV, JSON files</p>
+                        <small>AI will extract questions automatically</small>
                     </div>
-                    <div class="import-method">
-                        <h4>Paste JSON Data</h4>
-                        <textarea id="jsonData" rows="8" placeholder='[{"questionText":"What is 2+2?","type":"mcq","options":["3","4","5","6"],"correctAnswer":1,"marks":1}]'></textarea>
-                        <button class="btn btn-outline btn-sm" onclick="parseJsonData()">Parse JSON</button>
+                    <div id="aiProcessing" class="ai-processing hidden">
+                        <i class="fas fa-robot"></i>
+                        <p>AI is analyzing your document...</p>
                     </div>
                 </div>
-                <div id="importPreview" class="import-preview hidden">
-                    <h4>Preview Questions (<span id="previewCount">0</span>)</h4>
-                    <div id="previewList"></div>
+                
+                <div id="manualTab" class="tab-content hidden">
+                    <div class="manual-import">
+                        <label>Paste JSON Data</label>
+                        <textarea id="jsonData" rows="8" placeholder='[{"question":"What is 2+2?","options":["3","4","5","6"],"correctAnswer":1,"marks":1}]'></textarea>
+                        <button class="btn btn-outline" onclick="parseJsonData()">Parse JSON</button>
+                    </div>
                 </div>
+                
+                <div id="importPreview" class="import-preview hidden"></div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="hideBulkImport()">Cancel</button>
-                <button class="btn btn-primary" onclick="importQuestions()" id="importBtn" disabled><i class="fas fa-save"></i> Import Questions</button>
+                <button class="btn btn-primary" onclick="importQuestions()" id="importBtn" disabled><i class="fas fa-check"></i> Import Questions</button>
             </div>
         </div>
     </div>

@@ -1,16 +1,61 @@
+// Toast notification functions
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => toast.classList.add('show'), 100);
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => document.body.removeChild(toast), 300);
+    }, 4000);
+}
+
 // Authentication functions
 function showLogin() {
     document.getElementById('loginForm').classList.remove('hidden');
     document.getElementById('registerForm').classList.add('hidden');
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    document.getElementById('forgotForm').classList.add('hidden');
+    document.querySelectorAll('.tab-btn')[0].classList.add('active');
+    document.querySelectorAll('.tab-btn')[1].classList.remove('active');
 }
 
 function showRegister() {
     document.getElementById('registerForm').classList.remove('hidden');
     document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('forgotForm').classList.add('hidden');
+    document.querySelectorAll('.tab-btn')[0].classList.remove('active');
+    document.querySelectorAll('.tab-btn')[1].classList.add('active');
+}
+
+function showForgotPassword() {
+    document.getElementById('forgotForm').classList.remove('hidden');
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('registerForm').classList.add('hidden');
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+}
+
+function togglePassword(inputId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(inputId + 'Icon');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
 }
 
 // Login form handler
@@ -32,10 +77,10 @@ document.getElementById('login').addEventListener('submit', async (e) => {
             localStorage.setItem('userRole', userData.role);
             redirectToDashboard(userData.role);
         } else {
-            alert('User data not found');
+            showToast('User data not found', 'error');
         }
     } catch (error) {
-        alert('Login failed: ' + error.message);
+        showToast('Login failed: ' + error.message, 'error');
     }
 });
 
@@ -63,7 +108,7 @@ document.getElementById('register').addEventListener('submit', async (e) => {
         localStorage.setItem('userRole', role);
         redirectToDashboard(role);
     } catch (error) {
-        alert('Registration failed: ' + error.message);
+        showToast('Registration failed: ' + error.message, 'error');
     }
 });
 
@@ -101,3 +146,22 @@ function confirmLogout() {
         window.location.href = 'index.html';
     });
 }
+
+// Forgot password form handler
+document.getElementById('forgot').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('forgotEmail').value;
+    
+    const actionCodeSettings = {
+        url: window.location.origin + '/index.html',
+        handleCodeInApp: false
+    };
+    
+    try {
+        await auth.sendPasswordResetEmail(email, actionCodeSettings);
+        showToast('Password reset email sent! Check your inbox.');
+        showLogin();
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+});

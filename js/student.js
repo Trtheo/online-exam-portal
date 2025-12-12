@@ -194,25 +194,31 @@ function createExamCard(examId, exam, hasSubmitted, submission = null) {
     const startTime = exam.startTime ? exam.startTime.toDate() : null;
     const endTime = exam.endTime ? exam.endTime.toDate() : null;
     
-    let status = 'available';
-    let statusText = 'Available';
-    let statusClass = 'status-published';
+    let status = 'draft';
+    let statusText = 'Draft';
+    let statusClass = 'status-draft';
     
     if (hasSubmitted) {
         status = 'completed';
         statusText = 'Completed';
         statusClass = 'status-ended';
-    } else if (startTime && now < startTime) {
-        status = 'upcoming';
-        statusText = 'Upcoming';
-        statusClass = 'status-draft';
-    } else if (endTime && now > endTime) {
-        status = 'expired';
-        statusText = 'Expired';
-        statusClass = 'status-ended';
+    } else if (startTime && endTime) {
+        if (now < startTime) {
+            status = 'upcoming';
+            statusText = 'Upcoming';
+            statusClass = 'status-draft';
+        } else if (now >= startTime && now <= endTime) {
+            status = 'live';
+            statusText = 'LIVE';
+            statusClass = 'status-live';
+        } else if (now > endTime) {
+            status = 'expired';
+            statusText = 'Expired';
+            statusClass = 'status-ended';
+        }
     }
     
-    const canTakeExam = status === 'available' && !hasSubmitted;
+    const canTakeExam = status === 'live' && !hasSubmitted;
     
     card.innerHTML = `
         <div class="exam-header">
@@ -222,38 +228,41 @@ function createExamCard(examId, exam, hasSubmitted, submission = null) {
             </div>
             <div class="exam-status ${statusClass}">${statusText}</div>
         </div>
+        
+        <div class="exam-description">
+            <p><i class="fas fa-info-circle"></i> ${exam.instructions || 'No specific instructions provided for this exam.'}</p>
+        </div>
+        
         <div class="exam-meta">
             <div class="meta-item">
                 <i class="fas fa-clock meta-icon"></i>
-                <span>${exam.duration} minutes</span>
+                <span><strong>Duration:</strong> ${exam.duration} minutes</span>
             </div>
             <div class="meta-item">
                 <i class="fas fa-calendar-alt meta-icon"></i>
-                <span>${startTime ? startTime.toLocaleDateString() : 'Not set'}</span>
+                <span><strong>Start:</strong> ${startTime ? startTime.toLocaleString() : 'Not set'}</span>
             </div>
             <div class="meta-item">
                 <i class="fas fa-calendar-check meta-icon"></i>
-                <span>${endTime ? endTime.toLocaleDateString() : 'Not set'}</span>
+                <span><strong>End:</strong> ${endTime ? endTime.toLocaleString() : 'Not set'}</span>
             </div>
             ${hasSubmitted && submission ? `
-            <div class="meta-item">
+            <div class="meta-item score-item">
                 <i class="fas fa-chart-line meta-icon"></i>
-                <span>Score: ${submission.score}/${submission.total} (${submission.percentage}%)</span>
+                <span><strong>Your Score:</strong> ${submission.score}/${submission.total} (${submission.percentage}%)</span>
             </div>
-            ` : `
-            <div class="meta-item">
-                <i class="fas fa-info-circle meta-icon"></i>
-                <span>${exam.instructions ? 'Has instructions' : 'No instructions'}</span>
-            </div>
-            `}
+            ` : ''}
         </div>
+        
         <div class="exam-actions">
             ${hasSubmitted ? 
                 `<button class="btn btn-success" disabled><i class="fas fa-check"></i> Completed</button>
                  <button class="btn btn-outline btn-sm" onclick="viewResult('${examId}')"><i class="fas fa-eye"></i> View Result</button>` :
                 canTakeExam ?
-                    `<button class="btn btn-primary" onclick="startExam('${examId}')"><i class="fas fa-play"></i> Start Exam</button>` :
-                    `<button class="btn btn-outline" disabled><i class="fas fa-clock"></i> ${statusText}</button>`
+                    `<button class="btn btn-primary btn-lg" onclick="startExam('${examId}')"><i class="fas fa-play"></i> Start Exam</button>` :
+                    status === 'upcoming' ?
+                        `<button class="btn btn-outline" disabled><i class="fas fa-clock"></i> Starts ${startTime.toLocaleString()}</button>` :
+                        `<button class="btn btn-outline" disabled><i class="fas fa-times"></i> ${statusText}</button>`
             }
         </div>
     `;
@@ -261,14 +270,26 @@ function createExamCard(examId, exam, hasSubmitted, submission = null) {
     return card;
 }
 
+let currentExamToStart = null;
+
 function startExam(examId) {
-    if (confirm('Are you sure you want to start this exam? You cannot pause or restart once you begin.')) {
-        window.location.href = `take-exam.html?examId=${examId}`;
+    currentExamToStart = examId;
+    document.getElementById('startExamModal').classList.remove('hidden');
+}
+
+function hideStartExamModal() {
+    document.getElementById('startExamModal').classList.add('hidden');
+    currentExamToStart = null;
+}
+
+function confirmStartExam() {
+    if (currentExamToStart) {
+        window.location.href = `take-exam.html?examId=${currentExamToStart}`;
     }
 }
 
 function viewResult(examId) {
-    window.location.href = `view-results.html?examId=${examId}&student=true`;
+    showStudentResult(examId);
 }
 
 // Navigation functions
@@ -435,6 +456,8 @@ function hideOtherSections() {
     if (profileView) profileView.style.display = 'none';
     const leaderboardView = document.getElementById('leaderboardView');
     if (leaderboardView) leaderboardView.style.display = 'none';
+    const studentResultView = document.getElementById('studentResultView');
+    if (studentResultView) studentResultView.style.display = 'none';
 }
 
 function updateActiveNav(activeItem) {
@@ -474,21 +497,17 @@ async function loadMyResults() {
                 <div class="result-card" style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                         <div>
-                            <h4 style="margin: 0; color: #1e293b;">${exam.title}</h4>
-                            <p style="margin: 4px 0 0 0; color: #64748b;">${exam.subject}</p>
+                            <h4 style="margin: 0; color: #1e293b; font-size: 18px;">${exam.title}</h4>
+                            <p style="margin: 4px 0 8px 0; color: #667eea; font-weight: 600;"><i class="fas fa-book"></i> ${exam.subject}</p>
+                            <p style="margin: 0; color: #64748b; font-size: 14px;"><i class="fas fa-calendar-alt"></i> ${submission.submittedAt ? submission.submittedAt.toDate().toLocaleDateString() : 'Unknown'}</p>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-size: 24px; font-weight: 700; color: ${gradeColor};">${submission.percentage}%</div>
-                            <div style="font-size: 14px; color: #64748b;">${submission.score}/${submission.total}</div>
+                            <div style="font-size: 28px; font-weight: 700; color: ${gradeColor};">${submission.percentage}%</div>
+                            <div style="font-size: 14px; color: #64748b; margin-bottom: 8px;">${submission.score}/${submission.total} points</div>
+                            <button class="btn btn-outline btn-sm" onclick="viewResult('${examId}')">
+                                <i class="fas fa-eye"></i> View Details
+                            </button>
                         </div>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #64748b; font-size: 14px;">
-                            <i class="fas fa-calendar-alt"></i> ${submission.submittedAt ? submission.submittedAt.toDate().toLocaleDateString() : 'Unknown'}
-                        </span>
-                        <button class="btn btn-outline btn-sm" onclick="viewResult('${examId}')">
-                            <i class="fas fa-eye"></i> View Details
-                        </button>
                     </div>
                 </div>
             `;
@@ -676,6 +695,17 @@ function showLeaderboard() {
                 <button class="btn btn-outline" onclick="showDashboard()"><i class="fas fa-arrow-left"></i> Back</button>
             </div>
             <div class="section-content">
+                <div class="filter-controls" style="margin-bottom: 24px;">
+                    <div class="filter-group">
+                        <label class="filter-label">Filter by Exam</label>
+                        <select id="leaderboardExamFilter" class="filter-select" onchange="loadStudentLeaderboard()">
+                            <option value="">All Exams</option>
+                        </select>
+                    </div>
+                    <div class="filter-actions">
+                        <button class="btn btn-outline btn-sm" onclick="loadStudentLeaderboard()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                    </div>
+                </div>
                 <div id="leaderboardContainer">Loading...</div>
             </div>
         `;
@@ -688,34 +718,42 @@ function showLeaderboard() {
 
 async function loadStudentLeaderboard() {
     const container = document.getElementById('leaderboardContainer');
+    const examFilter = document.getElementById('leaderboardExamFilter');
     
     try {
         const examSnapshot = await db.collection('exams')
             .where('published', '==', true)
             .get();
         
-        const studentsMap = new Map();
+        // Populate exam filter
+        if (examFilter) {
+            examFilter.innerHTML = '<option value="">All Exams</option>';
+            examSnapshot.forEach(doc => {
+                const exam = doc.data();
+                examFilter.innerHTML += `<option value="${doc.id}">${exam.title} - ${exam.subject}</option>`;
+            });
+        }
+        
+        const selectedExamId = examFilter?.value || '';
+        const examResults = [];
         
         for (const examDoc of examSnapshot.docs) {
+            // Skip if filtering by specific exam
+            if (selectedExamId && examDoc.id !== selectedExamId) continue;
+            
+            const exam = examDoc.data();
             const submissionSnapshot = await db.collection('submissions')
                 .doc(examDoc.id).collection('students').get();
+            
+            const examStudents = [];
             
             for (const submissionDoc of submissionSnapshot.docs) {
                 const studentId = submissionDoc.id;
                 const submission = submissionDoc.data();
                 
-                if (!studentsMap.has(studentId)) {
-                    const userDoc = await db.collection('users').doc(studentId).get();
-                    const userData = userDoc.data();
-                    studentsMap.set(studentId, {
-                        name: userData?.name || 'Unknown',
-                        totalScore: 0,
-                        totalExams: 0,
-                        isCurrentUser: studentId === currentUser.uid
-                    });
-                }
+                const userDoc = await db.collection('users').doc(studentId).get();
+                const userData = userDoc.data();
                 
-                const student = studentsMap.get(studentId);
                 const questionsSnapshot = await db.collection('exams').doc(examDoc.id)
                     .collection('questions').get();
                 
@@ -734,16 +772,22 @@ async function loadStudentLeaderboard() {
                 });
                 
                 const percentage = total > 0 ? (scored / total) * 100 : 0;
-                student.totalScore += percentage;
-                student.totalExams += 1;
+                examStudents.push({
+                    name: userData?.name || 'Unknown',
+                    score: percentage,
+                    isCurrentUser: studentId === currentUser.uid
+                });
             }
+            
+            examStudents.sort((a, b) => b.score - a.score);
+            examResults.push({
+                title: exam.title,
+                subject: exam.subject,
+                students: examStudents
+            });
         }
         
-        const students = Array.from(studentsMap.values())
-            .map(s => ({ ...s, averageScore: s.totalScore / s.totalExams }))
-            .sort((a, b) => b.averageScore - a.averageScore);
-        
-        if (students.length === 0) {
+        if (examResults.length === 0) {
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px;">
                     <i class="fas fa-trophy" style="font-size: 48px; margin-bottom: 16px;"></i>
@@ -753,25 +797,34 @@ async function loadStudentLeaderboard() {
             return;
         }
         
-        container.innerHTML = `
-            <div class="leaderboard-table">
-                <div class="leaderboard-header">
-                    <div>Rank</div><div>Student</div><div>Score</div><div>Exams</div>
-                </div>
-                ${students.map((student, index) => {
-                    const rank = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
-                    const highlight = student.isCurrentUser ? 'style="background: #f0f4ff; border: 2px solid #667eea;"' : '';
-                    return `
-                        <div class="leaderboard-row" ${highlight}>
-                            <div>${rank}</div>
-                            <div>${student.name}${student.isCurrentUser ? ' (You)' : ''}</div>
-                            <div>${student.averageScore.toFixed(1)}%</div>
-                            <div>${student.totalExams}</div>
+        let leaderboardHTML = '';
+        examResults.forEach(exam => {
+            if (exam.students.length > 0) {
+                leaderboardHTML += `
+                    <div style="margin-bottom: 32px;">
+                        <h3 style="color: #1e293b; margin-bottom: 16px;">${exam.title} - ${exam.subject}</h3>
+                        <div class="leaderboard-table">
+                            <div class="leaderboard-header">
+                                <div>Rank</div><div>Student</div><div>Score</div>
+                            </div>
+                            ${exam.students.map((student, index) => {
+                                const rank = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+                                const highlight = student.isCurrentUser ? 'style="background: #f0f4ff; border: 2px solid #667eea;"' : '';
+                                return `
+                                    <div class="leaderboard-row" ${highlight}>
+                                        <div>${rank}</div>
+                                        <div>${student.name}${student.isCurrentUser ? ' (You)' : ''}</div>
+                                        <div>${student.score.toFixed(1)}%</div>
+                                    </div>
+                                `;
+                            }).join('')}
                         </div>
-                    `;
-                }).join('')}
-            </div>
-        `;
+                    </div>
+                `;
+            }
+        });
+        
+        container.innerHTML = leaderboardHTML;
         
     } catch (error) {
         container.innerHTML = '<p style="color: #ef4444;">Error loading leaderboard.</p>';
@@ -795,6 +848,80 @@ function closeSidebar() {
     overlay.classList.remove('show');
 }
 
+function showStudentResult(examId) {
+    hideAllSections();
+    updateActiveNav('Result');
+    
+    let resultView = document.getElementById('studentResultView');
+    if (!resultView) {
+        resultView = document.createElement('div');
+        resultView.id = 'studentResultView';
+        resultView.className = 'dashboard-section';
+        resultView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-chart-line"></i> My Result</h2>
+                <button class="btn btn-outline" onclick="showDashboard()"><i class="fas fa-arrow-left"></i> Back to Dashboard</button>
+            </div>
+            <div class="section-content">
+                <div id="studentResultContainer">Loading result...</div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(resultView);
+    }
+    
+    resultView.style.display = 'block';
+    loadStudentResult(examId);
+}
+
+async function loadStudentResult(examId) {
+    const container = document.getElementById('studentResultContainer');
+    
+    try {
+        const examDoc = await db.collection('exams').doc(examId).get();
+        const exam = examDoc.data();
+        
+        const submissionDoc = await db.collection('submissions')
+            .doc(examId).collection('students').doc(currentUser.uid).get();
+        
+        if (!submissionDoc.exists) {
+            container.innerHTML = '<p>No submission found.</p>';
+            return;
+        }
+        
+        const submission = submissionDoc.data();
+        const score = await calculateScore(examId, submission.answers);
+        const percentage = score.total > 0 ? ((score.scored / score.total) * 100).toFixed(1) : 0;
+        
+        container.innerHTML = `
+            <div class="result-summary" style="background: white; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <h3 style="margin: 0 0 8px 0; color: #1e293b; font-size: 24px;">${exam.title}</h3>
+                    <p style="margin: 0 0 16px 0; color: #667eea; font-weight: 600; font-size: 16px;"><i class="fas fa-book"></i> ${exam.subject}</p>
+                    <p style="margin: 0; color: #64748b;"><i class="fas fa-calendar-alt"></i> Submitted: ${submission.submittedAt ? submission.submittedAt.toDate().toLocaleString() : 'Unknown'}</p>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                    <div class="stat-item" style="text-align: center; padding: 16px; background: #f8fafc; border-radius: 8px;">
+                        <div style="font-size: 32px; font-weight: 700; color: ${percentage >= 70 ? '#16a34a' : percentage >= 50 ? '#d97706' : '#ef4444'};">${percentage}%</div>
+                        <div style="color: #64748b;">Final Score</div>
+                    </div>
+                    <div class="stat-item" style="text-align: center; padding: 16px; background: #f8fafc; border-radius: 8px;">
+                        <div style="font-size: 32px; font-weight: 700; color: #1e293b;">${score.scored}/${score.total}</div>
+                        <div style="color: #64748b;">Points Earned</div>
+                    </div>
+                    <div class="stat-item" style="text-align: center; padding: 16px; background: #f8fafc; border-radius: 8px;">
+                        <div style="font-size: 32px; font-weight: 700; color: #1e293b;">${exam.duration}</div>
+                        <div style="color: #64748b;">Duration (Minutes)</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Error loading student result:', error);
+        container.innerHTML = `<p style="color: #ef4444;">Error loading result: ${error.message}</p>`;
+    }
+}
+
 // Close sidebar when clicking nav links on mobile
 document.querySelectorAll('.sidebar-nav a').forEach(link => {
     link.addEventListener('click', () => {
@@ -802,4 +929,19 @@ document.querySelectorAll('.sidebar-nav a').forEach(link => {
             closeSidebar();
         }
     });
+});
+
+// Close modal when clicking outside
+document.addEventListener('click', (e) => {
+    const startExamModal = document.getElementById('startExamModal');
+    const deleteModal = document.getElementById('deleteModal');
+    const logoutModal = document.getElementById('logoutModal');
+    
+    if (e.target === startExamModal) {
+        hideStartExamModal();
+    } else if (e.target === deleteModal) {
+        hideDeleteModal();
+    } else if (e.target === logoutModal) {
+        hideLogoutModal();
+    }
 });

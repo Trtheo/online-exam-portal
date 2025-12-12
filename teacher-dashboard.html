@@ -6,6 +6,12 @@
     <title>Teacher Dashboard - Online Exam Portal</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
     <!-- Header -->
@@ -36,6 +42,7 @@
             <li><a href="#" onclick="showCreateExam()"><i class="fas fa-plus nav-icon"></i>Create Exam</a></li>
             <li><a href="#" onclick="showExamList()"><i class="fas fa-list nav-icon"></i>My Exams</a></li>
             <li><a href="#" onclick="showAllResultsView()"><i class="fas fa-chart-bar nav-icon"></i>All Results</a></li>
+            <li><a href="#" onclick="showStudentManagement()"><i class="fas fa-users-cog nav-icon"></i>Manage Students</a></li>
             <li><a href="#" onclick="showLeaderboard()"><i class="fas fa-trophy nav-icon"></i>Leaderboard</a></li>
             <li><a href="#" onclick="showProfile()"><i class="fas fa-user nav-icon"></i>Profile</a></li>
             <li><a href="#" onclick="logout()"><i class="fas fa-sign-out-alt nav-icon"></i>Logout</a></li>
@@ -91,15 +98,16 @@
                 </div>
             </div>
             
-            <!-- Create Exam Modal -->
-            <div id="createExamModal" class="modal hidden">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3>Create New Exam</h3>
-                        <button class="btn-icon" onclick="hideCreateExam()"><i class="fas fa-times"></i></button>
-                    </div>
-                    <form id="examForm">
-                        <div class="modal-body">
+            <!-- Create Exam Section -->
+            <div id="createExamSection" class="dashboard-section hidden">
+                <div class="section-header">
+                    <h2 class="section-title"><i class="fas fa-plus-circle"></i> Create New Exam</h2>
+                    <button class="btn btn-outline" onclick="hideCreateExam()"><i class="fas fa-arrow-left"></i> Back to Dashboard</button>
+                </div>
+                <div class="section-content">
+                    <form id="examForm" class="exam-creation-form">
+                        <div class="exam-details-section">
+                            <h3>Exam Details</h3>
                             <div class="form-grid">
                                 <div class="form-group">
                                     <label>Exam Title</label>
@@ -107,14 +115,28 @@
                                 </div>
                                 <div class="form-group">
                                     <label>Subject</label>
-                                    <input type="text" id="examSubject" placeholder="e.g., Mathematics" required>
+                                    <select id="examSubject" required>
+                                        <option value="">Select Subject</option>
+                                        <option value="Mathematics">Mathematics</option>
+                                        <option value="Science">Science</option>
+                                        <option value="English">English</option>
+                                        <option value="History">History</option>
+                                        <option value="Geography">Geography</option>
+                                        <option value="Computer Science">Computer Science</option>
+                                        <option value="Physics">Physics</option>
+                                        <option value="Chemistry">Chemistry</option>
+                                        <option value="Biology">Biology</option>
+                                        <option value="Other">Other</option>
+                                    </select>
                                 </div>
                                 <div class="form-group">
                                     <label>Duration (minutes)</label>
                                     <input type="number" id="examDuration" placeholder="60" min="1" required>
                                 </div>
                                 <div class="form-group">
-                                    <label>Start Date & Time</label>
+                                    <label>                               
+                                    Start Date & Time
+                                    </label>
                                     <input type="datetime-local" id="examStartTime" required>
                                 </div>
                                 <div class="form-group">
@@ -122,16 +144,53 @@
                                     <input type="datetime-local" id="examEndTime" required>
                                 </div>
                                 <div class="form-group full-width">
-                                    <label>Instructions (Optional)</label>
-                                    <textarea id="examInstructions" rows="3" placeholder="Enter exam instructions for students..."></textarea>
+                                    <label>Instructions</label>
+                                    <div id="instructionsEditor" style="height: 120px;"></div>
+                                    <input type="hidden" id="examInstructions">
                                 </div>
                             </div>
                         </div>
-                        <div class="modal-footer">
+                        
+                        <div class="questions-section">
+                            <div class="questions-header">
+                                <h3>Questions</h3>
+                                <div class="question-actions">
+                                    <button type="button" class="btn btn-primary" onclick="addQuestion('mcq')"><i class="fas fa-plus"></i> Add MCQ</button>
+                                    <button type="button" class="btn btn-outline" onclick="addQuestion('tf')"><i class="fas fa-plus"></i> Add True/False</button>
+                                    <button type="button" class="btn btn-outline" onclick="addQuestion('short')"><i class="fas fa-plus"></i> Add Short Answer</button>
+                                </div>
+                            </div>
+                            <div id="questionsList" class="questions-list">
+                                <div class="no-questions">
+                                    <i class="fas fa-question-circle"></i>
+                                    <p>No questions added yet. Click "Add MCQ" or "Add True/False" to start.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions">
                             <button type="button" class="btn btn-outline" onclick="hideCreateExam()">Cancel</button>
-                            <button type="submit" class="btn btn-primary">Create Exam</button>
+                            <button type="button" class="btn btn-success btn-lg" onclick="createExam()"><i class="fas fa-save"></i> Create Exam</button>
                         </div>
                     </form>
+                    
+                    <!-- Floating Add Question Buttons -->
+                    <div class="floating-question-buttons">
+                        <button type="button" class="floating-btn" onclick="toggleFloatingMenu()" title="Add Question">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <div class="floating-menu hidden" id="floatingMenu">
+                            <button type="button" class="menu-btn" onclick="selectQuestionType('mcq')">
+                                <i class="fas fa-list-ul"></i> Multiple Choice
+                            </button>
+                            <button type="button" class="menu-btn" onclick="selectQuestionType('tf')">
+                                <i class="fas fa-check-circle"></i> True/False
+                            </button>
+                            <button type="button" class="menu-btn" onclick="selectQuestionType('short')">
+                                <i class="fas fa-edit"></i> Short Answer
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -201,6 +260,113 @@
         </div>
     </div>
     
+    <!-- Edit Exam Modal -->
+    <div id="editExamModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Exam</h3>
+                <button class="btn-icon" onclick="hideEditExam()"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="editExamForm">
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Exam Title</label>
+                            <input type="text" id="editExamTitle" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Subject</label>
+                            <input type="text" id="editExamSubject" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Duration (minutes)</label>
+                            <input type="number" id="editExamDuration" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                               Start Date & Time
+                            </label>
+                            <input type="datetime-local" id="editExamStartTime" required>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                 End Date & Time
+                            </label>
+                            <input type="datetime-local" id="editExamEndTime" required>
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Instructions (Optional)</label>
+                            <textarea id="editExamInstructions" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="hideEditExam()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Exam</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Delete Exam Confirmation Modal -->
+    <div id="deleteExamModal" class="modal hidden">
+        <div class="modal-content confirmation-modal">
+            <div class="modal-header danger">
+                <h3><i class="fas fa-exclamation-triangle"></i> Delete Exam</h3>
+            </div>
+            <div class="modal-body">
+                <div class="warning-box">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>
+                        <h4>⚠️ WARNING: This action cannot be undone!</h4>
+                        <p>Deleting this exam will permanently:</p>
+                        <ul>
+                            <li>Delete all questions in this exam</li>
+                            <li>Remove all student submissions</li>
+                            <li>Erase all exam data completely</li>
+                        </ul>
+                    </div>
+                </div>
+                <p style="margin-top: 16px; font-weight: 500;">Type "DELETE" to confirm:</p>
+                <input type="text" id="deleteConfirmText" placeholder="Type DELETE to confirm" style="width: 100%; padding: 8px; margin-top: 8px;">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="hideDeleteExam()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmDeleteExam()" id="confirmDeleteBtn" disabled><i class="fas fa-trash"></i> Delete Exam</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Validation Modal -->
+    <div id="validationModal" class="modal hidden">
+        <div class="modal-content confirmation-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-exclamation-circle"></i> Validation Error</h3>
+            </div>
+            <div class="modal-body">
+                <p id="validationMessage">Please check your input</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="hideValidationModal()">OK</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Success Modal -->
+    <div id="successModal" class="modal hidden">
+        <div class="modal-content confirmation-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-check-circle"></i> Success</h3>
+            </div>
+            <div class="modal-body">
+                <p id="successMessage">Operation completed successfully</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="hideSuccessModal()">OK</button>
+            </div>
+        </div>
+    </div>
+    
     <!-- Delete Account Confirmation Modal -->
     <div id="deleteModal" class="modal hidden">
         <div class="modal-content confirmation-modal">
@@ -232,6 +398,23 @@
         </div>
     </div>
     
+    <!-- Grading Modal -->
+    <div id="gradingModal" class="modal hidden">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> Grade Short Answer Questions</h3>
+                <button class="btn-icon" onclick="hideGradingModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div id="gradingContent">Loading...</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="hideGradingModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveGrades()"><i class="fas fa-save"></i> Save Grades</button>
+            </div>
+        </div>
+    </div>
+    
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
@@ -239,5 +422,78 @@
     <script src="js/firebase-config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/teacher.js"></script>
+    
+    <style>
+    .grading-header {
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .questions-grading {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+    
+    .grade-question {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 20px;
+        background: #f8fafc;
+    }
+    
+    .question-text {
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 12px;
+        font-size: 16px;
+    }
+    
+    .student-answer {
+        margin-bottom: 12px;
+    }
+    
+    .answer-text {
+        background: white;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        padding: 12px;
+        margin-top: 8px;
+        min-height: 60px;
+        white-space: pre-wrap;
+    }
+    
+    .sample-answer {
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 12px;
+        font-size: 14px;
+    }
+    
+    .grade-input {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+    }
+    
+    .grade-input input {
+        padding: 8px 12px;
+        border: 2px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 600;
+    }
+    
+    .grade-input input:focus {
+        border-color: #667eea;
+        outline: none;
+    }
+    </style>
 </body>
 </html>
