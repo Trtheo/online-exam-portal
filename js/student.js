@@ -584,7 +584,8 @@ function filterStudentLeaderboard() {
         ...exam,
         students: exam.students.filter(student => 
             student.name.toLowerCase().includes(searchTerm) ||
-            (student.email && student.email.toLowerCase().includes(searchTerm))
+            (student.email && student.email.toLowerCase().includes(searchTerm)) ||
+            student.score.toFixed(1).includes(searchTerm)
         )
     })).filter(exam => exam.students.length > 0);
     
@@ -785,11 +786,11 @@ function showLeaderboard() {
                     </div>
                     <div class="search-container">
                         <label class="filter-label">Search Students</label>
-                        <input type="text" id="studentLeaderboardSearch" class="search-input" placeholder="Search by name or email..." onkeyup="filterStudentLeaderboard()">
+                        <input type="text" id="studentLeaderboardSearch" class="search-input" placeholder="Search by name, email or score..." onkeyup="filterStudentLeaderboard()">
                     </div>
                     <div class="filter-actions">
-                        <button class="btn btn-outline btn-sm" onclick="refreshStudentLeaderboard()"><i class="fas fa-sync-alt"></i> Refresh</button>
-                        <button class="clear-filters" onclick="clearStudentLeaderboardFilters()"><i class="fas fa-times"></i> Clear</button>
+                        <button class="btn btn-outline btn-xs" onclick="refreshStudentLeaderboard()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                        <button class="btn btn-outline btn-xs" onclick="clearStudentLeaderboardFilters()"><i class="fas fa-times"></i> Clear</button>
                     </div>
                 </div>
                 <div id="leaderboardContainer">Loading...</div>

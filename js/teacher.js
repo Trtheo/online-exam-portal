@@ -190,8 +190,8 @@ function showStudentManagement() {
                         </button>
                     </div>
                     <div class="filter-actions">
-                        <button class="btn btn-outline btn-sm" onclick="refreshStudents()"><i class="fas fa-sync-alt"></i> Refresh</button>
-                        <button class="clear-filters" onclick="clearStudentFilters()"><i class="fas fa-times"></i> Clear</button>
+                        <button class="btn btn-outline btn-xs" onclick="refreshStudents()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                        <button class="btn btn-outline btn-xs" onclick="clearStudentFilters()"><i class="fas fa-times"></i> Clear</button>
                     </div>
                 </div>
                 <div class="results-count" id="studentResultsCount">Loading students...</div>
@@ -2576,11 +2576,11 @@ function showLeaderboard() {
                     </div>
                     <div class="search-container">
                         <label class="filter-label">Search Students</label>
-                        <input type="text" id="leaderboardSearch" class="search-input" placeholder="Search by name or email..." onkeyup="displayLeaderboard()">
+                        <input type="text" id="leaderboardSearch" class="search-input" placeholder="Search by name, email or score..." onkeyup="displayLeaderboard()">
                     </div>
                     <div class="filter-actions">
-                        <button class="btn btn-outline btn-sm" onclick="refreshLeaderboard()"><i class="fas fa-sync-alt"></i> Refresh</button>
-                        <button class="clear-filters" onclick="clearLeaderboardFilters()"><i class="fas fa-times"></i> Clear</button>
+                        <button class="btn btn-outline btn-xs" onclick="refreshLeaderboard()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                        <button class="btn btn-outline btn-xs" onclick="clearLeaderboardFilters()"><i class="fas fa-times"></i> Clear</button>
                     </div>
                 </div>
                 <div id="leaderboardContainer">Loading...</div>
@@ -2698,7 +2698,8 @@ function displayLeaderboard() {
         if (searchTerm) {
             students = students.filter(student => 
                 student.name.toLowerCase().includes(searchTerm) ||
-                (student.email && student.email.toLowerCase().includes(searchTerm))
+                (student.email && student.email.toLowerCase().includes(searchTerm)) ||
+                student.score.toFixed(1).includes(searchTerm)
             );
         }
         
