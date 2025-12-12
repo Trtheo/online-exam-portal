@@ -26,6 +26,11 @@ async function loadExam() {
         if (examDoc.exists) {
             examData = examDoc.data();
             
+            // Validate required exam data
+            if (!examData || !examData.duration) {
+                throw new Error('Invalid exam data: missing duration');
+            }
+            
             // Check exam status
             const now = new Date();
             const startTime = examData.startTime ? examData.startTime.toDate() : null;
@@ -54,9 +59,13 @@ async function loadExam() {
                 window.location.href = 'student-dashboard.html';
                 return;
             }
+        } else {
+            throw new Error('Exam not found');
         }
     } catch (error) {
         console.error('Error loading exam:', error);
+        alert('Error loading exam: ' + error.message);
+        window.location.href = 'student-dashboard.html';
     }
 }
 
@@ -337,6 +346,10 @@ async function confirmSubmit() {
     shouldLeave = true;
     
     try {
+        if (!examData || !examData.duration) {
+            throw new Error('Exam data is not available');
+        }
+        
         const submissionData = {
             studentId: currentUser.uid,
             answers: answers,
@@ -355,6 +368,7 @@ async function confirmSubmit() {
             window.location.href = 'student-dashboard.html';
         }, 2000);
     } catch (error) {
+        console.error('Error submitting exam:', error);
         alert('Error submitting exam: ' + error.message);
     }
 }

@@ -1,13 +1,15 @@
 // Error message mapping
 function getErrorMessage(error) {
     const errorCode = error.code;
+    console.log('Auth error:', errorCode, error.message); // Debug logging
+    
     switch (errorCode) {
         case 'auth/invalid-login-credentials':
         case 'auth/user-not-found':
         case 'auth/wrong-password':
             return 'Invalid email or password. Please check your credentials.';
         case 'auth/email-already-in-use':
-            return 'This email is already registered. Please use a different email.';
+            return 'This email is already registered. Please use a different email or try logging in.';
         case 'auth/weak-password':
             return 'Password is too weak. Please use at least 6 characters.';
         case 'auth/invalid-email':
@@ -18,6 +20,10 @@ function getErrorMessage(error) {
             return 'Too many failed attempts. Please try again later.';
         case 'auth/network-request-failed':
             return 'Network error. Please check your internet connection.';
+        case 'auth/operation-not-allowed':
+            return 'Email/password accounts are not enabled. Please contact support.';
+        case 'auth/requires-recent-login':
+            return 'Please log out and log back in to perform this action.';
         default:
             return error.message || 'An unexpected error occurred. Please try again.';
     }
@@ -113,12 +119,30 @@ document.getElementById('login').addEventListener('submit', async (e) => {
 document.getElementById('register').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const name = document.getElementById('registerName').value;
-    const email = document.getElementById('registerEmail').value;
+    const name = document.getElementById('registerName').value.trim();
+    const email = document.getElementById('registerEmail').value.trim().toLowerCase();
     const password = document.getElementById('registerPassword').value;
     const role = 'student';
     
+    // Basic validation
+    if (!name || !email || !password) {
+        showToast('Please fill in all fields', 'error');
+        return;
+    }
+    
+    if (password.length < 6) {
+        showToast('Password must be at least 6 characters long', 'error');
+        return;
+    }
+    
     try {
+        // Check if user already exists in Firestore first
+        const existingUsers = await db.collection('users').where('email', '==', email).get();
+        if (!existingUsers.empty) {
+            showToast('This email is already registered. Please use a different email or try logging in.', 'error');
+            return;
+        }
+        
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
         
@@ -134,6 +158,7 @@ document.getElementById('register').addEventListener('submit', async (e) => {
         showToast('Account created successfully! Welcome to ExamPortal.');
         setTimeout(() => redirectToDashboard(role), 1500);
     } catch (error) {
+        console.error('Registration error:', error);
         showToast(getErrorMessage(error), 'error');
     }
 });
