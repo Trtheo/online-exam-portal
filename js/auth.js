@@ -108,14 +108,21 @@ document.getElementById('login').addEventListener('submit', async (e) => {
         
         // Get user role from Firestore
         const userDoc = await db.collection('users').doc(user.uid).get();
-        const userData = userDoc.data();
+        let userData = userDoc.data();
         
-        if (userData && userData.role) {
-            localStorage.setItem('userRole', userData.role);
-            redirectToDashboard(userData.role);
-        } else {
-            showToast('User data not found', 'error');
+        if (!userData) {
+            // Create user document if missing
+            userData = {
+                name: user.displayName || user.email.split('@')[0],
+                email: user.email,
+                role: 'student',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            await db.collection('users').doc(user.uid).set(userData);
         }
+        
+        localStorage.setItem('userRole', userData.role);
+        redirectToDashboard(userData.role);
     } catch (error) {
         showToast(getErrorMessage(error), 'error');
     } finally {
@@ -152,15 +159,20 @@ document.getElementById('register').addEventListener('submit', async (e) => {
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account...';
     
     try {
-        // Check if user already exists in Firestore first
-        const existingUsers = await db.collection('users').where('email', '==', email).get();
-        if (!existingUsers.empty) {
-            showToast('This email is already registered. Please use a different email or try logging in.', 'error');
-            return;
-        }
+
         
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
+        
+        // Wait for auth state to be ready
+        await new Promise(resolve => {
+            const unsubscribe = auth.onAuthStateChanged(authUser => {
+                if (authUser && authUser.uid === user.uid) {
+                    unsubscribe();
+                    resolve();
+                }
+            });
+        });
         
         // Save user data to Firestore
         await db.collection('users').doc(user.uid).set({
@@ -229,13 +241,8 @@ document.getElementById('forgot').addEventListener('submit', async (e) => {
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
     
-    const actionCodeSettings = {
-        url: window.location.origin + '/index.html',
-        handleCodeInApp: false
-    };
-    
     try {
-        await auth.sendPasswordResetEmail(email, actionCodeSettings);
+        await auth.sendPasswordResetEmail(email);
         showToast('Password reset email sent! Check your inbox.');
         setTimeout(() => showLogin(), 1500);
     } catch (error) {

@@ -63,6 +63,12 @@ auth.onAuthStateChanged(async (user) => {
         if (userData && userData.role === 'teacher') {
             document.getElementById('teacherName').textContent = userData.name;
             document.getElementById('userAvatar').textContent = userData.name.split(' ').map(n => n[0]).join('').toUpperCase();
+            
+            // Check if user is IT Teacher (admin)
+            if (userData.isITTeacher) {
+                document.getElementById('teacherManagementNav').style.display = 'block';
+            }
+            
             loadDashboardData();
         } else {
             window.location.href = 'index.html';
@@ -202,6 +208,11 @@ function showStudentManagement() {
     }
     
     studentView.style.display = 'block';
+    
+    // Show cached data instantly if available
+    if (cachedStudents.length > 0) {
+        displayStudents(cachedStudents);
+    }
     loadStudentManagement();
 }
 
@@ -224,9 +235,20 @@ function hideAllSections() {
     if (leaderboardView) leaderboardView.style.display = 'none';
     const examsSection = document.getElementById('examsSection');
     if (examsSection) examsSection.style.display = 'none';
+    const transcriptView = document.getElementById('transcriptGeneratorView');
+    if (transcriptView) transcriptView.style.display = 'none';
+    const reportsView = document.getElementById('reportsCenterView');
+    if (reportsView) reportsView.style.display = 'none';
+    const verificationView = document.getElementById('verificationCenterView');
+    if (verificationView) verificationView.style.display = 'none';
+    const teacherManagementView = document.getElementById('teacherManagementView');
+    if (teacherManagementView) teacherManagementView.style.display = 'none';
 }
 
 let allStudents = [];
+let cachedStudents = [];
+let cachedResults = [];
+let cachedLeaderboard = [];
 
 async function loadStudentManagement() {
     const container = document.getElementById('studentsContainer');
@@ -308,6 +330,7 @@ async function loadStudentManagement() {
         }
         
         allStudents = Array.from(studentsMap.values()).sort((a, b) => b.averageScore - a.averageScore);
+        cachedStudents = allStudents;
         displayStudents(allStudents);
         
     } catch (error) {
@@ -373,9 +396,14 @@ function displayStudents(students) {
                                 </span>
                             </div>
                         </div>
-                        <button class="btn btn-outline btn-sm" onclick="viewStudentDetails('${student.id}')" style="margin-left: 12px;">
-                            <i class="fas fa-eye"></i> Details
-                        </button>
+                        <div style="display: flex; gap: 4px; margin-left: 12px;">
+                            <button class="btn btn-outline btn-sm" onclick="viewStudentDetails('${student.id}')">
+                                <i class="fas fa-eye"></i> Details
+                            </button>
+                            <button class="btn btn-success btn-sm" onclick="generateStudentTranscript('${student.id}')">
+                                <i class="fas fa-graduation-cap"></i> Transcript
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="student-exams" style="max-height: 250px; overflow-y: auto; border-top: 1px solid #f1f5f9; padding-top: 12px;">
@@ -584,16 +612,42 @@ function showAllResultsView() {
         resultsView.className = 'dashboard-section';
         resultsView.innerHTML = `
             <div class="section-header">
-                <h2 class="section-title"><i class="fas fa-chart-bar"></i> All Exam Results</h2>
+                <h2 class="section-title"><i class="fas fa-chart-bar"></i> Comprehensive Results Report</h2>
                 <button class="btn btn-outline" onclick="showDashboard()"><i class="fas fa-arrow-left"></i> Back to Dashboard</button>
             </div>
             <div class="section-content">
-                <div class="results-filters" style="margin-bottom: 20px; display: flex; gap: 12px; align-items: center;">
-                    <select id="resultsExamFilter" onchange="filterResults()" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #d1d5db;">
-                        <option value="">All Exams</option>
-                    </select>
-                    <button class="btn btn-outline btn-sm" onclick="exportResults()"><i class="fas fa-download"></i> Export</button>
+                <div class="results-filters" style="margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; align-items: end;">
+                    <div>
+                        <label class="filter-label">Filter by Exam</label>
+                        <select id="resultsExamFilter" onchange="filterResults()" class="filter-select">
+                            <option value="">All Exams</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="filter-label">Start Date</label>
+                        <input type="date" id="startDateFilter" onchange="filterResults()" class="filter-select">
+                    </div>
+                    <div>
+                        <label class="filter-label">End Date</label>
+                        <input type="date" id="endDateFilter" onchange="filterResults()" class="filter-select">
+                    </div>
+                    <div>
+                        <label class="filter-label">Performance</label>
+                        <select id="performanceFilter" onchange="filterResults()" class="filter-select">
+                            <option value="">All Students</option>
+                            <option value="top">Top Performers (≥90%)</option>
+                            <option value="high">High Performers (70-89%)</option>
+                            <option value="medium">Average Performers (50-69%)</option>
+                            <option value="low">Needs Improvement (<50%)</option>
+                        </select>
+                    </div>
+                    <div class="filter-actions">
+                        <button class="btn btn-primary btn-sm" onclick="generateDetailedReport()"><i class="fas fa-file-alt"></i> Detailed Report</button>
+                        <button class="btn btn-success btn-sm" onclick="exportResults()"><i class="fas fa-download"></i> Export Excel</button>
+                        <button class="btn btn-outline btn-sm" onclick="clearResultsFilters()"><i class="fas fa-times"></i> Clear</button>
+                    </div>
                 </div>
+                <div class="results-summary" id="resultsSummary" style="margin-bottom: 20px;"></div>
                 <div id="resultsContainer">Loading results...</div>
             </div>
         `;
@@ -601,6 +655,11 @@ function showAllResultsView() {
     }
     
     resultsView.style.display = 'block';
+    
+    // Show cached data instantly if available
+    if (cachedResults.length > 0) {
+        displayFilteredResults(cachedResults);
+    }
     loadAllResultsInline();
 }
 
@@ -627,12 +686,21 @@ function updateActiveNav(activeItem) {
 
 async function loadAllResultsInline() {
     const container = document.getElementById('resultsContainer');
+    const summaryContainer = document.getElementById('resultsSummary');
+    const examFilter = document.getElementById('resultsExamFilter');
+    
     container.innerHTML = '<div style="text-align: center; padding: 40px;">Loading results...</div>';
     
     try {
         const examSnapshot = await db.collection('exams')
             .where('createdBy', '==', currentUser.uid)
             .get();
+        
+        // Populate exam filter
+        if (examFilter) {
+            examFilter.innerHTML = '<option value="">All Exams</option>' + 
+                examSnapshot.docs.map(doc => `<option value="${doc.id}">${doc.data().title} - ${doc.data().subject}</option>`).join('');
+        }
         
         if (examSnapshot.empty) {
             container.innerHTML = `
@@ -645,13 +713,85 @@ async function loadAllResultsInline() {
             return;
         }
         
-        container.innerHTML = '';
+        // Load all results data
+        const allResults = [];
+        let totalSubmissions = 0;
+        let totalScore = 0;
+        let totalMaxScore = 0;
+        const uniqueStudents = new Set();
         
         for (const examDoc of examSnapshot.docs) {
             const exam = examDoc.data();
-            const examCard = await createInlineResultCard(examDoc.id, exam);
-            container.appendChild(examCard);
+            const submissionSnapshot = await db.collection('submissions')
+                .doc(examDoc.id).collection('students').get();
+            
+            for (const submissionDoc of submissionSnapshot.docs) {
+                const submission = submissionDoc.data();
+                const userDoc = await db.collection('users').doc(submissionDoc.id).get();
+                const userData = userDoc.data();
+                
+                const score = await calculateInlineScore(examDoc.id, submission.answers);
+                const percentage = score.total > 0 ? ((score.scored / score.total) * 100) : 0;
+                
+                uniqueStudents.add(submissionDoc.id);
+                totalSubmissions++;
+                totalScore += score.scored;
+                totalMaxScore += score.total;
+                
+                allResults.push({
+                    examId: examDoc.id,
+                    examTitle: exam.title,
+                    examSubject: exam.subject,
+                    examDate: exam.startTime ? exam.startTime.toDate() : null,
+                    studentId: submissionDoc.id,
+                    studentName: userData?.name || 'Unknown',
+                    studentEmail: userData?.email || 'Unknown',
+                    score: score.scored,
+                    total: score.total,
+                    percentage: percentage,
+                    timeSpent: submission.timeSpent ? Math.round(submission.timeSpent / 60) : 0,
+                    submittedAt: submission.submittedAt ? submission.submittedAt.toDate() : null,
+                    suspiciousActivity: submission.suspiciousActivity?.length || 0
+                });
+            }
         }
+        
+        // Store for filtering
+        window.allResultsData = allResults;
+        cachedResults = allResults;
+        
+        // Display summary
+        const avgPercentage = totalMaxScore > 0 ? ((totalScore / totalMaxScore) * 100).toFixed(1) : 0;
+        const topPerformers = allResults.filter(r => r.percentage >= 90).length;
+        const highPerformers = allResults.filter(r => r.percentage >= 70 && r.percentage < 90).length;
+        const passRate = allResults.length > 0 ? ((allResults.filter(r => r.percentage >= 50).length / allResults.length) * 100).toFixed(1) : 0;
+        
+        summaryContainer.innerHTML = `
+            <div class="summary-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                <div class="summary-card" style="background: white; padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0;">
+                    <div style="font-size: 32px; font-weight: 700; color: #3b82f6;">${totalSubmissions}</div>
+                    <div style="color: #64748b;">Total Submissions</div>
+                </div>
+                <div class="summary-card" style="background: white; padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0;">
+                    <div style="font-size: 32px; font-weight: 700; color: #8b5cf6;">${uniqueStudents.size}</div>
+                    <div style="color: #64748b;">Unique Students</div>
+                </div>
+                <div class="summary-card" style="background: white; padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0;">
+                    <div style="font-size: 32px; font-weight: 700; color: #10b981;">${avgPercentage}%</div>
+                    <div style="color: #64748b;">Class Average</div>
+                </div>
+                <div class="summary-card" style="background: white; padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0;">
+                    <div style="font-size: 32px; font-weight: 700; color: #f59e0b;">${passRate}%</div>
+                    <div style="color: #64748b;">Pass Rate</div>
+                </div>
+                <div class="summary-card" style="background: white; padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0;">
+                    <div style="font-size: 32px; font-weight: 700; color: #ef4444;">${topPerformers}</div>
+                    <div style="color: #64748b;">Top Performers (≥90%)</div>
+                </div>
+            </div>
+        `;
+        
+        displayFilteredResults(allResults);
         
     } catch (error) {
         container.innerHTML = '<p style="color: #ef4444;">Error loading results. Please refresh the page.</p>';
@@ -684,8 +824,8 @@ async function createInlineResultCard(examId, exam) {
         card.innerHTML = `
             <div class="exam-header">
                 <div>
-                    <div class="exam-title">${exam.title}</div>
-                    <div class="exam-subject">${exam.subject}</div>
+                    <div class="exam-title">Exam Title: ${exam.title}</div>
+                    <div class="exam-subject">Subject: ${exam.subject}</div>
                 </div>
                 <div class="exam-status ${exam.published ? 'status-published' : 'status-draft'}">
                     ${exam.published ? 'Published' : 'Draft'}
@@ -725,8 +865,8 @@ async function createInlineResultCard(examId, exam) {
         card.innerHTML = `
             <div class="exam-header">
                 <div>
-                    <div class="exam-title">${exam.title}</div>
-                    <div class="exam-subject">${exam.subject}</div>
+                    <div class="exam-title">Exam Title: ${exam.title}</div>
+                    <div class="exam-subject">Subject: ${exam.subject}</div>
                 </div>
             </div>
             <p style="color: #ef4444;">Error loading results for this exam</p>
@@ -1566,8 +1706,8 @@ function createExamCard(examId, exam) {
     card.innerHTML = `
         <div class="exam-header">
             <div>
-                <div class="exam-title">${exam.title}</div>
-                <div class="exam-subject">${exam.subject}</div>
+                <div class="exam-title">Exam Title: ${exam.title}</div>
+                <div class="exam-subject">Subject: ${exam.subject}</div>
             </div>
             <div class="exam-status status-${status}">${statusText}</div>
         </div>
@@ -1986,6 +2126,11 @@ async function loadProfileData() {
             if (userData.createdAt) {
                 document.getElementById('profileJoined').textContent = userData.createdAt.toDate().toLocaleDateString();
             }
+            
+            // Show password change message for new teachers
+            if (userData.isNewTeacher) {
+                showNotification('Welcome! Please change your default password for security.', 'info');
+            }
         }
         
         // Load stats
@@ -2001,6 +2146,246 @@ async function loadProfileData() {
         
     } catch (error) {
         console.error('Error loading profile:', error);
+    }
+}
+
+async function viewIndividualReport(examId, studentId) {
+    try {
+        showNotification('Generating individual student report...', 'info');
+        
+        const examDoc = await db.collection('exams').doc(examId).get();
+        const exam = examDoc.data();
+        
+        const submissionDoc = await db.collection('submissions')
+            .doc(examId).collection('students').doc(studentId).get();
+        const submission = submissionDoc.data();
+        
+        const userDoc = await db.collection('users').doc(studentId).get();
+        const userData = userDoc.data();
+        
+        const questionsSnapshot = await db.collection('exams').doc(examId)
+            .collection('questions').get();
+        
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Header
+        doc.setFillColor(102, 126, 234);
+        doc.rect(0, 0, 210, 40, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text('INDIVIDUAL STUDENT REPORT', 20, 25);
+        
+        // Student Info
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Student: ${userData?.name || 'Unknown'}`, 20, 55);
+        
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Email: ${userData?.email || 'Unknown'}`, 20, 65);
+        doc.text(`Exam Title: ${exam.title}`, 20, 72);
+        doc.text(`Subject: ${exam.subject}`, 20, 79);
+        doc.text(`Date: ${submission.submittedAt ? submission.submittedAt.toDate().toLocaleDateString() : 'Unknown'}`, 20, 86);
+        
+        // Performance Summary
+        const score = await calculateDetailedScore(examId, submission.answers, submission.manualGrades);
+        const percentage = score.total > 0 ? ((score.scored / score.total) * 100) : 0;
+        const timeSpent = submission.timeSpent ? Math.round(submission.timeSpent / 60) : 0;
+        
+        doc.setFillColor(248, 250, 252);
+        doc.rect(20, 95, 170, 35, 'F');
+        doc.setDrawColor(226, 232, 240);
+        doc.rect(20, 95, 170, 35);
+        
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('PERFORMANCE SUMMARY', 25, 105);
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Final Score: ${score.scored}/${score.total} (${percentage.toFixed(1)}%)`, 25, 115);
+        doc.text(`Time Spent: ${timeSpent} minutes (of ${exam.duration} allowed)`, 25, 122);
+        
+        let grade = 'F';
+        if (percentage >= 90) grade = 'A+';
+        else if (percentage >= 85) grade = 'A';
+        else if (percentage >= 80) grade = 'A-';
+        else if (percentage >= 75) grade = 'B+';
+        else if (percentage >= 70) grade = 'B';
+        else if (percentage >= 65) grade = 'B-';
+        else if (percentage >= 60) grade = 'C+';
+        else if (percentage >= 55) grade = 'C';
+        else if (percentage >= 50) grade = 'C-';
+        else if (percentage >= 45) grade = 'D';
+        
+        doc.text(`Grade: ${grade}`, 120, 115);
+        doc.text(`Status: ${percentage >= 50 ? 'PASS' : 'FAIL'}`, 120, 122);
+        
+        // Security Summary
+        if (submission.suspiciousActivity && submission.suspiciousActivity.length > 0) {
+            doc.setFillColor(254, 242, 242);
+            doc.rect(20, 140, 170, 20, 'F');
+            doc.setDrawColor(254, 202, 202);
+            doc.rect(20, 140, 170, 20);
+            
+            doc.setTextColor(239, 68, 68);
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text('SECURITY ALERTS', 25, 150);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`${submission.suspiciousActivity.length} suspicious activities detected`, 25, 157);
+            doc.setTextColor(0, 0, 0);
+        }
+        
+        // Question-by-Question Analysis
+        let y = submission.suspiciousActivity && submission.suspiciousActivity.length > 0 ? 175 : 145;
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('QUESTION ANALYSIS', 20, y);
+        y += 10;
+        
+        let questionNum = 1;
+        questionsSnapshot.forEach(questionDoc => {
+            if (y > 270) {
+                doc.addPage();
+                y = 20;
+            }
+            
+            const question = questionDoc.data();
+            const studentAnswer = submission.answers[questionDoc.id];
+            const manualGrade = submission.manualGrades?.[questionDoc.id];
+            
+            let isCorrect = false;
+            let earnedPoints = 0;
+            
+            if (question.type === 'mcq') {
+                isCorrect = parseInt(studentAnswer) === question.correctAnswer;
+                earnedPoints = isCorrect ? question.marks : 0;
+            } else if (question.type === 'tf') {
+                isCorrect = studentAnswer === question.correctAnswer.toString();
+                earnedPoints = isCorrect ? question.marks : 0;
+            } else if (question.type === 'short') {
+                earnedPoints = manualGrade !== undefined ? parseFloat(manualGrade) : 0;
+                isCorrect = earnedPoints > 0;
+            }
+            
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Q${questionNum}: ${earnedPoints}/${question.marks} pts`, 20, y);
+            
+            // Status indicator
+            if (question.type !== 'short') {
+                doc.setTextColor(isCorrect ? 22 : 239, isCorrect ? 163 : 68, isCorrect ? 74 : 68);
+                doc.text(isCorrect ? '✓' : '✗', 180, y);
+                doc.setTextColor(0, 0, 0);
+            }
+            
+            y += 7;
+            questionNum++;
+        });
+        
+        // Footer
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Page ${i} of ${pageCount}`, 180, 290);
+            doc.text('Generated by Online Exam Portal', 20, 290);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 285);
+        }
+        
+        doc.save(`${userData?.name || 'Student'}_${exam.title.replace(/[^a-z0-9]/gi, '_')}_Report.pdf`);
+        showNotification('Individual report generated successfully!');
+        
+    } catch (error) {
+        showNotification('Error generating individual report: ' + error.message, 'error');
+    }
+}
+
+async function exportExamExcel(examId) {
+    try {
+        showNotification('Generating Excel report for exam...', 'info');
+        
+        const examDoc = await db.collection('exams').doc(examId).get();
+        const exam = examDoc.data();
+        
+        const submissionSnapshot = await db.collection('submissions')
+            .doc(examId).collection('students').get();
+        
+        const wb = XLSX.utils.book_new();
+        const data = [];
+        
+        // Header
+        data.push([`EXAM RESULTS: ${exam.title}`]);
+        data.push([`Subject: ${exam.subject}`]);
+        data.push([`Generated: ${new Date().toLocaleString()}`]);
+        data.push([]);
+        
+        // Column headers
+        data.push([
+            'Rank', 'Student Name', 'Email', 'Score', 'Total Points', 'Percentage', 
+            'Grade', 'Status', 'Time Spent (min)', 'Submission Date', 'Flags'
+        ]);
+        
+        // Data rows
+        const results = [];
+        for (const submissionDoc of submissionSnapshot.docs) {
+            const submission = submissionDoc.data();
+            const userDoc = await db.collection('users').doc(submissionDoc.id).get();
+            const userData = userDoc.data();
+            
+            const score = await calculateDetailedScore(examId, submission.answers, submission.manualGrades);
+            const percentage = score.total > 0 ? ((score.scored / score.total) * 100) : 0;
+            
+            results.push({
+                name: userData?.name || 'Unknown',
+                email: userData?.email || 'Unknown',
+                score: score.scored,
+                total: score.total,
+                percentage: percentage,
+                timeSpent: submission.timeSpent ? Math.round(submission.timeSpent / 60) : 0,
+                submittedAt: submission.submittedAt ? submission.submittedAt.toDate() : null,
+                flags: submission.suspiciousActivity?.length || 0
+            });
+        }
+        
+        results.sort((a, b) => b.percentage - a.percentage);
+        
+        results.forEach((result, index) => {
+            let grade = 'F';
+            if (result.percentage >= 90) grade = 'A+';
+            else if (result.percentage >= 85) grade = 'A';
+            else if (result.percentage >= 80) grade = 'A-';
+            else if (result.percentage >= 75) grade = 'B+';
+            else if (result.percentage >= 70) grade = 'B';
+            else if (result.percentage >= 65) grade = 'B-';
+            else if (result.percentage >= 60) grade = 'C+';
+            else if (result.percentage >= 55) grade = 'C';
+            else if (result.percentage >= 50) grade = 'C-';
+            else if (result.percentage >= 45) grade = 'D';
+            
+            data.push([
+                index + 1, result.name, result.email, result.score, result.total,
+                parseFloat(result.percentage.toFixed(1)), grade,
+                result.percentage >= 50 ? 'PASS' : 'FAIL',
+                result.timeSpent,
+                result.submittedAt ? result.submittedAt.toLocaleDateString() : 'Unknown',
+                result.flags > 0 ? `${result.flags} flags` : 'Clean'
+            ]);
+        });
+        
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, 'Exam Results');
+        XLSX.writeFile(wb, `${exam.title.replace(/[^a-z0-9]/gi, '_')}_Results.xlsx`);
+        
+        showNotification('Excel report downloaded successfully!');
+        
+    } catch (error) {
+        showNotification('Error generating Excel report: ' + error.message, 'error');
     }
 }
 
@@ -2326,8 +2711,254 @@ async function downloadExamReport(examId) {
 }
 
 function filterResults() {
-    // Filter results by selected exam
-    loadAllResultsInline();
+    if (!window.allResultsData) {
+        loadAllResultsInline();
+        return;
+    }
+    
+    const examFilter = document.getElementById('resultsExamFilter')?.value || '';
+    const startDate = document.getElementById('startDateFilter')?.value;
+    const endDate = document.getElementById('endDateFilter')?.value;
+    const performanceFilter = document.getElementById('performanceFilter')?.value || '';
+    
+    let filteredResults = [...window.allResultsData];
+    
+    // Filter by exam
+    if (examFilter) {
+        filteredResults = filteredResults.filter(r => r.examId === examFilter);
+    }
+    
+    // Filter by date range
+    if (startDate) {
+        const start = new Date(startDate);
+        filteredResults = filteredResults.filter(r => r.submittedAt && r.submittedAt >= start);
+    }
+    if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999); // Include the entire end date
+        filteredResults = filteredResults.filter(r => r.submittedAt && r.submittedAt <= end);
+    }
+    
+    // Filter by performance
+    if (performanceFilter) {
+        filteredResults = filteredResults.filter(r => {
+            const perc = r.percentage;
+            if (performanceFilter === 'top') return perc >= 90;
+            if (performanceFilter === 'high') return perc >= 70 && perc < 90;
+            if (performanceFilter === 'medium') return perc >= 50 && perc < 70;
+            if (performanceFilter === 'low') return perc < 50;
+            return true;
+        });
+    }
+    
+    displayFilteredResults(filteredResults);
+}
+
+function clearResultsFilters() {
+    document.getElementById('resultsExamFilter').value = '';
+    document.getElementById('startDateFilter').value = '';
+    document.getElementById('endDateFilter').value = '';
+    document.getElementById('performanceFilter').value = '';
+    filterResults();
+}
+
+function displayFilteredResults(results) {
+    const container = document.getElementById('resultsContainer');
+    
+    if (results.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #64748b;">
+                <i class="fas fa-search" style="font-size: 48px; margin-bottom: 16px;"></i>
+                <h3 style="margin-bottom: 8px; color: #1e293b;">No results found</h3>
+                <p>Try adjusting your filters</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Group by exam
+    const examGroups = {};
+    results.forEach(result => {
+        if (!examGroups[result.examId]) {
+            examGroups[result.examId] = {
+                examTitle: result.examTitle,
+                examSubject: result.examSubject,
+                examDate: result.examDate,
+                students: []
+            };
+        }
+        examGroups[result.examId].students.push(result);
+    });
+    
+    let html = `
+        <div class="results-header" style="margin-bottom: 20px; padding: 16px; background: #f8fafc; border-radius: 8px;">
+            <h3 style="margin: 0; color: #1e293b;">Showing ${results.length} results</h3>
+        </div>
+    `;
+    
+    Object.values(examGroups).forEach(group => {
+        // Sort students by percentage (highest first)
+        group.students.sort((a, b) => b.percentage - a.percentage);
+        
+        const avgScore = group.students.reduce((sum, s) => sum + s.percentage, 0) / group.students.length;
+        
+        html += `
+            <div class="exam-results-group" style="margin-bottom: 32px; background: white; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0;">
+                <div class="exam-group-header" style="padding: 20px; background: linear-gradient(135deg, #667eea, #764ba2); color: white;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 20px;">Exam Title: ${group.examTitle}</h3>
+                    <p style="margin: 0 0 8px 0; opacity: 0.9;">Subject: ${group.examSubject}</p>
+                    <div style="display: flex; gap: 24px; font-size: 14px;">
+                        <span><i class="fas fa-users"></i> ${group.students.length} submissions</span>
+                        <span><i class="fas fa-chart-line"></i> Avg: ${avgScore.toFixed(1)}%</span>
+                        <span><i class="fas fa-calendar"></i> ${group.examDate ? group.examDate.toLocaleDateString() : 'No date'}</span>
+                    </div>
+                </div>
+                <div class="students-table">
+                    <div class="table-header" style="display: grid; grid-template-columns: 50px 2fr 2fr 100px 100px 100px 120px 80px; padding: 16px; background: #f8fafc; font-weight: 600; border-bottom: 1px solid #e2e8f0;">
+                        <div>Rank</div>
+                        <div>Student Name</div>
+                        <div>Email</div>
+                        <div>Score</div>
+                        <div>Percentage</div>
+                        <div>Time (min)</div>
+                        <div>Submitted</div>
+                        <div>Flags</div>
+                    </div>
+                    ${group.students.map((student, index) => {
+                        const rankIcon = index < 3 ? 
+                            ['🥇', '🥈', '🥉'][index] : `#${index + 1}`;
+                        const gradeColor = student.percentage >= 90 ? '#16a34a' : 
+                                         student.percentage >= 70 ? '#2563eb' : 
+                                         student.percentage >= 50 ? '#d97706' : '#ef4444';
+                        
+                        return `
+                            <div class="table-row" style="display: grid; grid-template-columns: 50px 2fr 2fr 100px 100px 100px 120px 80px; padding: 16px; border-bottom: 1px solid #f1f5f9; align-items: center; ${index % 2 === 0 ? 'background: #f8fafc;' : ''}">
+                                <div style="font-size: 18px;">${rankIcon}</div>
+                                <div style="font-weight: 500;">${student.studentName}</div>
+                                <div style="color: #64748b; font-size: 14px;">${student.studentEmail}</div>
+                                <div><strong>${student.score}/${student.total}</strong></div>
+                                <div style="color: ${gradeColor}; font-weight: 600; font-size: 16px;">${student.percentage.toFixed(1)}%</div>
+                                <div>${student.timeSpent}</div>
+                                <div style="font-size: 12px;">${student.submittedAt ? student.submittedAt.toLocaleDateString() : 'Unknown'}</div>
+                                <div>${student.suspiciousActivity > 0 ? `<span style="color: #ef4444;">⚠️ ${student.suspiciousActivity}</span>` : '<span style="color: #10b981;"><i class="fas fa-check-circle"></i></span>'}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+async function generateDetailedReport() {
+    try {
+        showNotification('Generating detailed PDF report...', 'info');
+        
+        const results = window.allResultsData || [];
+        if (results.length === 0) {
+            showNotification('No data available for report', 'error');
+            return;
+        }
+        
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Header
+        doc.setFillColor(102, 126, 234);
+        doc.rect(0, 0, 210, 35, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(20);
+        doc.setFont('helvetica', 'bold');
+        doc.text('COMPREHENSIVE RESULTS REPORT', 20, 22);
+        
+        // Summary Statistics
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Summary Statistics', 20, 50);
+        
+        const uniqueStudents = new Set(results.map(r => r.studentId)).size;
+        const uniqueExams = new Set(results.map(r => r.examId)).size;
+        const avgScore = results.reduce((sum, r) => sum + r.percentage, 0) / results.length;
+        const topPerformers = results.filter(r => r.percentage >= 90).length;
+        const passRate = (results.filter(r => r.percentage >= 50).length / results.length) * 100;
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Total Submissions: ${results.length}`, 20, 60);
+        doc.text(`Unique Students: ${uniqueStudents}`, 20, 67);
+        doc.text(`Unique Exams: ${uniqueExams}`, 20, 74);
+        doc.text(`Class Average: ${avgScore.toFixed(1)}%`, 110, 60);
+        doc.text(`Top Performers (≥90%): ${topPerformers}`, 110, 67);
+        doc.text(`Pass Rate: ${passRate.toFixed(1)}%`, 110, 74);
+        
+        // Top Performers Section
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Top Performers (≥90%)', 20, 90);
+        
+        const topResults = results.filter(r => r.percentage >= 90)
+            .sort((a, b) => b.percentage - a.percentage)
+            .slice(0, 10);
+        
+        let y = 100;
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        
+        topResults.forEach((result, index) => {
+            if (y > 270) {
+                doc.addPage();
+                y = 20;
+            }
+            doc.text(`${index + 1}. ${result.studentName} - ${result.examTitle} - ${result.percentage.toFixed(1)}%`, 20, y);
+            y += 6;
+        });
+        
+        // Performance Distribution
+        y += 10;
+        if (y > 250) {
+            doc.addPage();
+            y = 20;
+        }
+        
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Performance Distribution', 20, y);
+        y += 10;
+        
+        const distribution = {
+            'Excellent (≥90%)': results.filter(r => r.percentage >= 90).length,
+            'Good (70-89%)': results.filter(r => r.percentage >= 70 && r.percentage < 90).length,
+            'Average (50-69%)': results.filter(r => r.percentage >= 50 && r.percentage < 70).length,
+            'Needs Improvement (<50%)': results.filter(r => r.percentage < 50).length
+        };
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        Object.entries(distribution).forEach(([category, count]) => {
+            const percentage = ((count / results.length) * 100).toFixed(1);
+            doc.text(`${category}: ${count} students (${percentage}%)`, 20, y);
+            y += 7;
+        });
+        
+        // Footer
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Page ${i} of ${pageCount}`, 180, 290);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 290);
+        }
+        
+        doc.save(`Detailed_Results_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+        showNotification('Detailed report generated successfully!');
+        
+    } catch (error) {
+        showNotification('Error generating report: ' + error.message, 'error');
+    }
 }
 
 function showNotification(message, type = 'success') {
@@ -2517,6 +3148,18 @@ async function confirmDelete() {
     }
 }
 
+// Temporary function to assign IT Teacher role - use in browser console
+window.makeITTeacher = async function(email) {
+    const users = await db.collection('users').where('email', '==', email).get();
+    if (!users.empty) {
+        await db.collection('users').doc(users.docs[0].id).update({ isITTeacher: true });
+        console.log('IT Teacher role assigned to:', email);
+        location.reload();
+    } else {
+        console.log('User not found:', email);
+    }
+};
+
 // Sidebar toggle functions
 function toggleSidebar() {
     const sidebar = document.querySelector('.sidebar');
@@ -2590,6 +3233,12 @@ function showLeaderboard() {
     }
     
     leaderboardView.style.display = 'block';
+    
+    // Show cached data instantly if available
+    if (cachedLeaderboard.length > 0) {
+        allLeaderboardData = cachedLeaderboard;
+        displayLeaderboard();
+    }
     loadLeaderboard();
 }
 
@@ -2655,6 +3304,7 @@ async function loadLeaderboard() {
         }
         
         allLeaderboardData = examResults;
+        cachedLeaderboard = examResults;
         displayLeaderboard();
         
     } catch (error) {
@@ -2902,29 +3552,18 @@ async function loadExamResults(examId) {
         if (submissionSnapshot.empty) {
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px;">
-                    <h3>${exam.title}</h3>
+                    <h3>Exam Title: ${exam.title}</h3>
+                    <p><strong>Subject:</strong> ${exam.subject}</p>
                     <p>No submissions yet</p>
                 </div>
             `;
             return;
         }
         
-        let resultsHTML = `
-            <div class="exam-info" style="margin-bottom: 24px; padding: 20px; background: white; border-radius: 8px;">
-                <h3>${exam.title}</h3>
-                <p><strong>Subject:</strong> ${exam.subject}</p>
-                <p><strong>Total Submissions:</strong> ${submissionSnapshot.size}</p>
-            </div>
-            <div class="results-table" style="background: white; border-radius: 8px; overflow: hidden;">
-                <div class="table-header" style="display: grid; grid-template-columns: 2fr 2fr 1fr 1fr 1fr 1fr; padding: 16px; background: #f8fafc; font-weight: 600; border-bottom: 1px solid #e2e8f0;">
-                    <div>Student Name</div>
-                    <div>Email</div>
-                    <div>Score</div>
-                    <div>Percentage</div>
-                    <div>Submitted</div>
-                    <div>Actions</div>
-                </div>
-        `;
+        // Calculate statistics
+        const results = [];
+        let totalScore = 0;
+        let totalMaxScore = 0;
         
         for (const submissionDoc of submissionSnapshot.docs) {
             const submission = submissionDoc.data();
@@ -2932,19 +3571,94 @@ async function loadExamResults(examId) {
             const userData = userDoc.data();
             
             const score = await calculateDetailedScore(examId, submission.answers, submission.manualGrades);
-            const percentage = score.total > 0 ? ((score.scored / score.total) * 100).toFixed(1) : 0;
+            const percentage = score.total > 0 ? ((score.scored / score.total) * 100) : 0;
+            
+            totalScore += score.scored;
+            totalMaxScore += score.total;
+            
+            results.push({
+                studentId: submissionDoc.id,
+                studentName: userData?.name || 'Unknown',
+                studentEmail: userData?.email || 'Unknown',
+                score: score.scored,
+                total: score.total,
+                percentage: percentage,
+                timeSpent: submission.timeSpent ? Math.round(submission.timeSpent / 60) : 0,
+                submittedAt: submission.submittedAt ? submission.submittedAt.toDate() : null,
+                suspiciousActivity: submission.suspiciousActivity?.length || 0,
+                tabSwitchCount: submission.tabSwitchCount || 0
+            });
+        }
+        
+        // Sort by percentage (highest first)
+        results.sort((a, b) => b.percentage - a.percentage);
+        
+        const avgPercentage = totalMaxScore > 0 ? ((totalScore / totalMaxScore) * 100).toFixed(1) : 0;
+        const topPerformers = results.filter(r => r.percentage >= 90).length;
+        const passRate = results.length > 0 ? ((results.filter(r => r.percentage >= 50).length / results.length) * 100).toFixed(1) : 0;
+        
+        let resultsHTML = `
+            <div class="exam-info" style="margin-bottom: 24px; padding: 24px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px;">
+                <h3 style="margin: 0 0 12px 0; font-size: 24px;">Exam Title: ${exam.title}</h3>
+                <p style="margin: 0 0 8px 0; opacity: 0.9;"><strong>Subject:</strong> ${exam.subject}</p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-top: 16px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 28px; font-weight: 700;">${results.length}</div>
+                        <div style="opacity: 0.9;">Submissions</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 28px; font-weight: 700;">${avgPercentage}%</div>
+                        <div style="opacity: 0.9;">Class Average</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 28px; font-weight: 700;">${topPerformers}</div>
+                        <div style="opacity: 0.9;">Top Performers</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 28px; font-weight: 700;">${passRate}%</div>
+                        <div style="opacity: 0.9;">Pass Rate</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="results-table" style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <div class="table-header" style="display: grid; grid-template-columns: 50px 2fr 2fr 100px 100px 100px 120px 80px 120px; padding: 16px; background: #f8fafc; font-weight: 600; border-bottom: 2px solid #e2e8f0;">
+                    <div>Rank</div>
+                    <div>Student Name</div>
+                    <div>Email</div>
+                    <div>Score</div>
+                    <div>Percentage</div>
+                    <div>Time (min)</div>
+                    <div>Submitted</div>
+                    <div>Flags</div>
+                    <div>Actions</div>
+                </div>
+        `;
+        
+        results.forEach((result, index) => {
+            const rankIcon = index < 3 ? 
+                ['🥇', '🥈', '🥉'][index] : `#${index + 1}`;
+            const gradeColor = result.percentage >= 90 ? '#16a34a' : 
+                             result.percentage >= 70 ? '#2563eb' : 
+                             result.percentage >= 50 ? '#d97706' : '#ef4444';
             
             resultsHTML += `
-                <div class="table-row" style="display: grid; grid-template-columns: 2fr 2fr 1fr 1fr 1fr 1fr; padding: 16px; border-bottom: 1px solid #f1f5f9; align-items: center;">
-                    <div>${userData?.name || 'Unknown'}</div>
-                    <div>${userData?.email || 'Unknown'}</div>
-                    <div><strong>${score.scored}/${score.total}</strong></div>
-                    <div style="color: ${percentage >= 70 ? '#16a34a' : percentage >= 50 ? '#d97706' : '#ef4444'}; font-weight: 600;">${percentage}%</div>
-                    <div>${submission.submittedAt ? submission.submittedAt.toDate().toLocaleDateString() : 'Unknown'}</div>
-                    <div><button class="btn btn-outline btn-sm" onclick="gradeSubmission('${examId}', '${submissionDoc.id}')"><i class="fas fa-edit"></i> Grade</button></div>
+                <div class="table-row" style="display: grid; grid-template-columns: 50px 2fr 2fr 100px 100px 100px 120px 80px 120px; padding: 16px; border-bottom: 1px solid #f1f5f9; align-items: center; ${index % 2 === 0 ? 'background: #f8fafc;' : ''}">
+                    <div style="font-size: 18px; text-align: center;">${rankIcon}</div>
+                    <div style="font-weight: 500;">${result.studentName}</div>
+                    <div style="color: #64748b; font-size: 14px;">${result.studentEmail}</div>
+                    <div><strong>${result.score}/${result.total}</strong></div>
+                    <div style="color: ${gradeColor}; font-weight: 600; font-size: 16px;">${result.percentage.toFixed(1)}%</div>
+                    <div>${result.timeSpent}</div>
+                    <div style="font-size: 12px;">${result.submittedAt ? result.submittedAt.toLocaleDateString() : 'Unknown'}</div>
+                    <div>${result.suspiciousActivity > 0 ? `<span style="color: #ef4444;">⚠️ ${result.suspiciousActivity}</span>` : '<span style="color: #10b981;"><i class="fas fa-check-circle"></i></span>'}</div>
+                    <div>
+                        <button class="btn btn-primary btn-sm" onclick="viewIndividualReport('${examId}', '${result.studentId}')" style="margin-right: 4px;"><i class="fas fa-eye"></i> Report</button>
+                        <button class="btn btn-outline btn-sm" onclick="gradeSubmission('${examId}', '${result.studentId}')"><i class="fas fa-edit"></i> Grade</button>
+                    </div>
                 </div>
             `;
-        }
+        });
         
         resultsHTML += '</div>';
         container.innerHTML = resultsHTML;
@@ -3112,6 +3826,1154 @@ async function resetStudentExam(examId, studentId) {
     } catch (error) {
         showNotification('Error resetting exam: ' + error.message, 'error');
     }
+}
+
+function showTranscriptGenerator() {
+    hideAllSections();
+    updateActiveNav('Transcript Generator');
+    
+    let transcriptView = document.getElementById('transcriptGeneratorView');
+    if (!transcriptView) {
+        transcriptView = document.createElement('div');
+        transcriptView.id = 'transcriptGeneratorView';
+        transcriptView.className = 'dashboard-section';
+        transcriptView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-graduation-cap"></i> Student Transcript Generator</h2>
+                <button class="btn btn-outline" onclick="showStudentManagement()"><i class="fas fa-arrow-left"></i> Back to Students</button>
+            </div>
+            <div class="section-content">
+                <div class="transcript-form" style="background: white; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                    <h3 style="margin: 0 0 20px 0;">Generate Academic Transcript</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                        <div>
+                            <label class="filter-label">Select Student</label>
+                            <select id="transcriptStudentSelect" class="filter-select" onchange="loadStudentExams()">
+                                <option value="">Choose a student...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="filter-label">Academic Period</label>
+                            <input type="text" id="academicPeriod" class="filter-select" placeholder="e.g., Fall 2024, Academic Year 2024-2025" value="Academic Year 2024-2025">
+                        </div>
+                    </div>
+                    <div id="examSelectionContainer" style="display: none;">
+                        <label class="filter-label">Select Exams to Include</label>
+                        <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                            <button class="btn btn-outline btn-sm" onclick="selectAllExams()">Select All</button>
+                            <button class="btn btn-outline btn-sm" onclick="deselectAllExams()">Deselect All</button>
+                        </div>
+                        <div id="examCheckboxes" style="max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;"></div>
+                    </div>
+                    <div style="margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="generateTranscript()" id="generateTranscriptBtn" disabled>
+                            <i class="fas fa-file-alt"></i> Generate Official Transcript
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(transcriptView);
+    }
+    
+    transcriptView.style.display = 'block';
+    loadTranscriptStudents();
+}
+
+async function loadTranscriptStudents() {
+    const select = document.getElementById('transcriptStudentSelect');
+    
+    try {
+        const examSnapshot = await db.collection('exams').where('createdBy', '==', currentUser.uid).get();
+        const studentIds = new Set();
+        
+        for (const examDoc of examSnapshot.docs) {
+            const submissionSnapshot = await db.collection('submissions').doc(examDoc.id).collection('students').get();
+            submissionSnapshot.forEach(doc => studentIds.add(doc.id));
+        }
+        
+        const students = [];
+        for (const studentId of studentIds) {
+            const userDoc = await db.collection('users').doc(studentId).get();
+            if (userDoc.exists) {
+                students.push({ id: studentId, ...userDoc.data() });
+            }
+        }
+        
+        students.sort((a, b) => a.name.localeCompare(b.name));
+        
+        select.innerHTML = '<option value="">Choose a student...</option>' + 
+            students.map(student => `<option value="${student.id}">${student.name} (${student.email})</option>`).join('');
+            
+    } catch (error) {
+        showNotification('Error loading students: ' + error.message, 'error');
+    }
+}
+
+async function loadStudentExams() {
+    const studentId = document.getElementById('transcriptStudentSelect').value;
+    const container = document.getElementById('examSelectionContainer');
+    const checkboxContainer = document.getElementById('examCheckboxes');
+    const generateBtn = document.getElementById('generateTranscriptBtn');
+    
+    if (!studentId) {
+        container.style.display = 'none';
+        generateBtn.disabled = true;
+        return;
+    }
+    
+    try {
+        const examSnapshot = await db.collection('exams').where('createdBy', '==', currentUser.uid).get();
+        const studentExams = [];
+        
+        for (const examDoc of examSnapshot.docs) {
+            const submissionDoc = await db.collection('submissions')
+                .doc(examDoc.id).collection('students').doc(studentId).get();
+            
+            if (submissionDoc.exists) {
+                const exam = examDoc.data();
+                const submission = submissionDoc.data();
+                const score = await calculateDetailedScore(examDoc.id, submission.answers, submission.manualGrades);
+                const percentage = score.total > 0 ? ((score.scored / score.total) * 100) : 0;
+                
+                studentExams.push({
+                    id: examDoc.id,
+                    title: exam.title,
+                    subject: exam.subject,
+                    date: submission.submittedAt ? submission.submittedAt.toDate() : null,
+                    score: score.scored,
+                    total: score.total,
+                    percentage: percentage
+                });
+            }
+        }
+        
+        if (studentExams.length === 0) {
+            checkboxContainer.innerHTML = '<p style="color: #64748b; text-align: center; padding: 20px;">No exam submissions found for this student.</p>';
+            generateBtn.disabled = true;
+        } else {
+            studentExams.sort((a, b) => (b.date || new Date(0)) - (a.date || new Date(0)));
+            
+            checkboxContainer.innerHTML = studentExams.map(exam => `
+                <div style="display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; last-child:border-bottom: none;">
+                    <input type="checkbox" id="exam_${exam.id}" value="${exam.id}" checked style="margin-right: 12px;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 500; color: #1e293b;">${exam.title}</div>
+                        <div style="font-size: 14px; color: #64748b;">${exam.subject} • ${exam.date ? exam.date.toLocaleDateString() : 'No date'}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: 600; color: ${exam.percentage >= 70 ? '#16a34a' : exam.percentage >= 50 ? '#d97706' : '#ef4444'};">${exam.percentage.toFixed(1)}%</div>
+                        <div style="font-size: 12px; color: #64748b;">${exam.score}/${exam.total}</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            generateBtn.disabled = false;
+        }
+        
+        container.style.display = 'block';
+        
+    } catch (error) {
+        showNotification('Error loading student exams: ' + error.message, 'error');
+    }
+}
+
+function selectAllExams() {
+    document.querySelectorAll('#examCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = true);
+}
+
+function deselectAllExams() {
+    document.querySelectorAll('#examCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
+}
+
+async function generateStudentTranscript(studentId) {
+    try {
+        showNotification('Generating comprehensive student transcript...', 'info');
+        
+        const userDoc = await db.collection('users').doc(studentId).get();
+        const userData = userDoc.data();
+        
+        const examSnapshot = await db.collection('exams').where('createdBy', '==', currentUser.uid).get();
+        const studentResults = [];
+        const subjectSummary = {};
+        
+        for (const examDoc of examSnapshot.docs) {
+            const submissionDoc = await db.collection('submissions')
+                .doc(examDoc.id).collection('students').doc(studentId).get();
+            
+            if (submissionDoc.exists) {
+                const exam = examDoc.data();
+                const submission = submissionDoc.data();
+                const score = await calculateDetailedScore(examDoc.id, submission.answers, submission.manualGrades);
+                const percentage = score.total > 0 ? ((score.scored / score.total) * 100) : 0;
+                
+                studentResults.push({
+                    title: exam.title,
+                    subject: exam.subject,
+                    date: submission.submittedAt ? submission.submittedAt.toDate() : null,
+                    score: score.scored,
+                    total: score.total,
+                    percentage: percentage,
+                    timeSpent: submission.timeSpent ? Math.round(submission.timeSpent / 60) : 0
+                });
+                
+                if (!subjectSummary[exam.subject]) {
+                    subjectSummary[exam.subject] = { totalScore: 0, totalMax: 0, count: 0, exams: [] };
+                }
+                subjectSummary[exam.subject].totalScore += score.scored;
+                subjectSummary[exam.subject].totalMax += score.total;
+                subjectSummary[exam.subject].count += 1;
+                subjectSummary[exam.subject].exams.push({ title: exam.title, percentage });
+            }
+        }
+        
+        await generateOfficialTranscript(userData, studentResults, subjectSummary, studentId);
+        
+    } catch (error) {
+        showNotification('Error generating transcript: ' + error.message, 'error');
+    }
+}
+
+async function generateTranscript() {
+    const studentId = document.getElementById('transcriptStudentSelect').value;
+    const academicPeriod = document.getElementById('academicPeriod').value;
+    const selectedExams = Array.from(document.querySelectorAll('#examCheckboxes input[type="checkbox"]:checked')).map(cb => cb.value);
+    
+    if (!studentId || selectedExams.length === 0) {
+        showNotification('Please select a student and at least one exam', 'error');
+        return;
+    }
+    
+    try {
+        showNotification('Generating official academic transcript...', 'info');
+        
+        const userDoc = await db.collection('users').doc(studentId).get();
+        const userData = userDoc.data();
+        
+        const studentResults = [];
+        const subjectSummary = {};
+        
+        for (const examId of selectedExams) {
+            const examDoc = await db.collection('exams').doc(examId).get();
+            const submissionDoc = await db.collection('submissions')
+                .doc(examId).collection('students').doc(studentId).get();
+            
+            if (examDoc.exists && submissionDoc.exists) {
+                const exam = examDoc.data();
+                const submission = submissionDoc.data();
+                const score = await calculateDetailedScore(examId, submission.answers, submission.manualGrades);
+                const percentage = score.total > 0 ? ((score.scored / score.total) * 100) : 0;
+                
+                studentResults.push({
+                    title: exam.title,
+                    subject: exam.subject,
+                    date: submission.submittedAt ? submission.submittedAt.toDate() : null,
+                    score: score.scored,
+                    total: score.total,
+                    percentage: percentage,
+                    timeSpent: submission.timeSpent ? Math.round(submission.timeSpent / 60) : 0
+                });
+                
+                if (!subjectSummary[exam.subject]) {
+                    subjectSummary[exam.subject] = { totalScore: 0, totalMax: 0, count: 0, exams: [] };
+                }
+                subjectSummary[exam.subject].totalScore += score.scored;
+                subjectSummary[exam.subject].totalMax += score.total;
+                subjectSummary[exam.subject].count += 1;
+                subjectSummary[exam.subject].exams.push({ title: exam.title, percentage });
+            }
+        }
+        
+        await generateOfficialTranscript(userData, studentResults, subjectSummary, studentId, academicPeriod);
+        
+    } catch (error) {
+        showNotification('Error generating transcript: ' + error.message, 'error');
+    }
+}
+
+async function generateOfficialTranscript(userData, studentResults, subjectSummary, studentId, academicPeriod = 'Academic Year 2024-2025') {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Calculate overall statistics and ranking
+    const overallScore = studentResults.reduce((sum, r) => sum + r.score, 0);
+    const overallMax = studentResults.reduce((sum, r) => sum + r.total, 0);
+    const overallPercentage = overallMax > 0 ? ((overallScore / overallMax) * 100) : 0;
+    
+    // Get student ranking
+    const allStudentsData = await getAllStudentsForRanking();
+    const studentRank = calculateStudentRank(studentId, allStudentsData);
+    
+    // Header with school branding
+    doc.setFillColor(25, 46, 94);
+    doc.rect(0, 0, 210, 45, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ONLINE EXAM PORTAL', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'normal');
+    doc.text('OFFICIAL ACADEMIC TRANSCRIPT', 105, 30, { align: 'center' });
+    
+    doc.setFontSize(12);
+    doc.text(academicPeriod, 105, 38, { align: 'center' });
+    
+    // Student Information Section
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('STUDENT INFORMATION', 20, 60);
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, 62, 190, 62);
+    
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Name: ${userData?.name || 'Unknown'}`, 20, 72);
+    doc.text(`Email: ${userData?.email || 'Unknown'}`, 20, 80);
+    doc.text(`Student ID: ${studentId.substring(0, 8).toUpperCase()}`, 20, 88);
+    doc.text(`Issue Date: ${new Date().toLocaleDateString()}`, 120, 72);
+    doc.text(`Academic Period: ${academicPeriod}`, 120, 80);
+    doc.text(`Class Rank: ${studentRank.rank} of ${studentRank.total}`, 120, 88);
+    
+    // Academic Performance Summary
+    let y = 105;
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ACADEMIC PERFORMANCE SUMMARY', 20, y);
+    doc.line(20, y + 2, 190, y + 2);
+    
+    y += 15;
+    
+    // Subject-wise performance table
+    doc.setFillColor(240, 240, 240);
+    doc.rect(20, y, 170, 8, 'F');
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SUBJECT', 25, y + 5);
+    doc.text('EXAMS', 80, y + 5);
+    doc.text('TOTAL SCORE', 110, y + 5);
+    doc.text('PERCENTAGE', 140, y + 5);
+    doc.text('GRADE', 170, y + 5);
+    
+    y += 8;
+    
+    Object.entries(subjectSummary).forEach(([subject, summary]) => {
+        const subjectPercentage = summary.totalMax > 0 ? ((summary.totalScore / summary.totalMax) * 100) : 0;
+        const grade = getLetterGrade(subjectPercentage);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.text(subject, 25, y + 5);
+        doc.text(summary.count.toString(), 85, y + 5);
+        doc.text(`${summary.totalScore}/${summary.totalMax}`, 115, y + 5);
+        doc.text(`${subjectPercentage.toFixed(1)}%`, 145, y + 5);
+        
+        // Color-coded grade
+        const gradeColor = getGradeColor(subjectPercentage);
+        doc.setTextColor(gradeColor[0], gradeColor[1], gradeColor[2]);
+        doc.setFont('helvetica', 'bold');
+        doc.text(grade, 175, y + 5);
+        doc.setTextColor(0, 0, 0);
+        
+        y += 8;
+    });
+    
+    // Overall Performance
+    y += 5;
+    doc.setFillColor(230, 230, 230);
+    doc.rect(20, y, 170, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.text('OVERALL PERFORMANCE', 25, y + 5);
+    doc.text(studentResults.length.toString(), 85, y + 5);
+    doc.text(`${overallScore}/${overallMax}`, 115, y + 5);
+    doc.text(`${overallPercentage.toFixed(1)}%`, 145, y + 5);
+    
+    const overallGrade = getLetterGrade(overallPercentage);
+    const overallGradeColor = getGradeColor(overallPercentage);
+    doc.setTextColor(overallGradeColor[0], overallGradeColor[1], overallGradeColor[2]);
+    doc.text(overallGrade, 175, y + 5);
+    doc.setTextColor(0, 0, 0);
+    
+    // Detailed Exam Results
+    y += 25;
+    if (y > 250) {
+        doc.addPage();
+        y = 20;
+    }
+    
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DETAILED EXAMINATION RESULTS', 20, y);
+    doc.line(20, y + 2, 190, y + 2);
+    
+    y += 15;
+    
+    // Group by subject
+    const examsBySubject = {};
+    studentResults.forEach(result => {
+        if (!examsBySubject[result.subject]) {
+            examsBySubject[result.subject] = [];
+        }
+        examsBySubject[result.subject].push(result);
+    });
+    
+    Object.entries(examsBySubject).forEach(([subject, exams]) => {
+        if (y > 260) {
+            doc.addPage();
+            y = 20;
+        }
+        
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(subject.toUpperCase(), 20, y);
+        y += 8;
+        
+        // Exam details table header
+        doc.setFillColor(250, 250, 250);
+        doc.rect(20, y, 170, 6, 'F');
+        doc.setFontSize(9);
+        doc.text('Exam Title', 25, y + 4);
+        doc.text('Date', 100, y + 4);
+        doc.text('Score', 130, y + 4);
+        doc.text('%', 150, y + 4);
+        doc.text('Grade', 170, y + 4);
+        
+        y += 6;
+        
+        exams.forEach(exam => {
+            doc.setFont('helvetica', 'normal');
+            doc.text(exam.title.substring(0, 30), 25, y + 4);
+            doc.text(exam.date ? exam.date.toLocaleDateString() : 'N/A', 100, y + 4);
+            doc.text(`${exam.score}/${exam.total}`, 130, y + 4);
+            doc.text(`${exam.percentage.toFixed(1)}%`, 150, y + 4);
+            
+            const examGrade = getLetterGrade(exam.percentage);
+            const examGradeColor = getGradeColor(exam.percentage);
+            doc.setTextColor(examGradeColor[0], examGradeColor[1], examGradeColor[2]);
+            doc.setFont('helvetica', 'bold');
+            doc.text(examGrade, 175, y + 4);
+            doc.setTextColor(0, 0, 0);
+            
+            y += 6;
+        });
+        
+        y += 5;
+    });
+    
+    // Grading Scale
+    if (y > 240) {
+        doc.addPage();
+        y = 20;
+    } else {
+        y += 10;
+    }
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('GRADING SCALE', 20, y);
+    doc.line(20, y + 2, 100, y + 2);
+    
+    y += 10;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    const gradingScale = [
+        'A+ (95-100%)', 'A (90-94%)', 'A- (85-89%)',
+        'B+ (80-84%)', 'B (75-79%)', 'B- (70-74%)',
+        'C+ (65-69%)', 'C (60-64%)', 'C- (55-59%)',
+        'D+ (50-54%)', 'D (45-49%)', 'F (0-44%)'
+    ];
+    
+    gradingScale.forEach((grade, index) => {
+        if (index % 3 === 0 && index > 0) y += 6;
+        doc.text(grade, 20 + (index % 3) * 50, y);
+    });
+    
+    // Generate and store verification code
+    const verificationCode = generateVerificationCode();
+    await storeVerificationCode(verificationCode, { id: studentId, name: userData?.name, email: userData?.email }, studentResults);
+    
+    // Footer with authentication
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        
+        // Footer line
+        doc.setDrawColor(200, 200, 200);
+        doc.line(20, 280, 190, 280);
+        
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text('This is an official transcript generated by Online Exam Portal', 20, 285);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 290);
+        doc.text(`Page ${i} of ${pageCount}`, 180, 290);
+        doc.text('Verification Code: ' + verificationCode, 120, 285);
+    }
+    
+    doc.save(`${userData?.name || 'Student'}_Official_Transcript.pdf`);
+    showNotification(`Official transcript generated! Verification code: ${verificationCode}`);
+}
+
+function getLetterGrade(percentage) {
+    if (percentage >= 95) return 'A+';
+    if (percentage >= 90) return 'A';
+    if (percentage >= 85) return 'A-';
+    if (percentage >= 80) return 'B+';
+    if (percentage >= 75) return 'B';
+    if (percentage >= 70) return 'B-';
+    if (percentage >= 65) return 'C+';
+    if (percentage >= 60) return 'C';
+    if (percentage >= 55) return 'C-';
+    if (percentage >= 50) return 'D+';
+    if (percentage >= 45) return 'D';
+    return 'F';
+}
+
+function getGradeColor(percentage) {
+    if (percentage >= 90) return [22, 163, 74]; // Green
+    if (percentage >= 80) return [37, 99, 235]; // Blue
+    if (percentage >= 70) return [245, 158, 11]; // Orange
+    if (percentage >= 50) return [217, 119, 6]; // Dark orange
+    return [239, 68, 68]; // Red
+}
+
+async function getAllStudentsForRanking() {
+    const examSnapshot = await db.collection('exams').where('createdBy', '==', currentUser.uid).get();
+    const studentData = new Map();
+    
+    for (const examDoc of examSnapshot.docs) {
+        const submissionSnapshot = await db.collection('submissions').doc(examDoc.id).collection('students').get();
+        
+        for (const submissionDoc of submissionSnapshot.docs) {
+            const studentId = submissionDoc.id;
+            const submission = submissionDoc.data();
+            const score = await calculateDetailedScore(examDoc.id, submission.answers, submission.manualGrades);
+            
+            if (!studentData.has(studentId)) {
+                studentData.set(studentId, { totalScore: 0, totalMax: 0 });
+            }
+            
+            const data = studentData.get(studentId);
+            data.totalScore += score.scored;
+            data.totalMax += score.total;
+        }
+    }
+    
+    const rankings = Array.from(studentData.entries()).map(([id, data]) => ({
+        studentId: id,
+        percentage: data.totalMax > 0 ? (data.totalScore / data.totalMax) * 100 : 0
+    })).sort((a, b) => b.percentage - a.percentage);
+    
+    return rankings;
+}
+
+function calculateStudentRank(studentId, allStudentsData) {
+    const studentIndex = allStudentsData.findIndex(s => s.studentId === studentId);
+    return {
+        rank: studentIndex >= 0 ? studentIndex + 1 : 'N/A',
+        total: allStudentsData.length,
+        percentage: studentIndex >= 0 ? allStudentsData[studentIndex].percentage : 0
+    };
+}
+
+function generateVerificationCode() {
+    return 'EP' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 5).toUpperCase();
+}
+
+// Store verification codes in Firestore
+async function storeVerificationCode(code, studentData, examData) {
+    try {
+        const subjects = examData && examData.length > 0 ? [...new Set(examData.map(e => e.subject))] : [];
+        const overallPercentage = examData && examData.length > 0 ? (examData.reduce((sum, e) => sum + e.percentage, 0) / examData.length).toFixed(1) : 0;
+        
+        await db.collection('verificationCodes').doc(code).set({
+            studentId: studentData.id,
+            studentName: studentData.name,
+            studentEmail: studentData.email,
+            examCount: examData ? examData.length : 0,
+            subjects: subjects,
+            overallPercentage: overallPercentage,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            issuedBy: currentUser.uid
+        });
+    } catch (error) {
+        console.error('Error storing verification code:', error);
+    }
+}
+
+// Real-time verification check
+let verificationTimeout;
+function checkCodeRealTime() {
+    clearTimeout(verificationTimeout);
+    const code = document.getElementById('verificationCode').value.trim();
+    if (code.length >= 8) {
+        verificationTimeout = setTimeout(() => {
+            verifyTranscript();
+        }, 1000);
+    } else {
+        document.getElementById('verificationResult').style.display = 'none';
+    }
+}
+
+// Verification function
+async function verifyTranscript() {
+    const code = document.getElementById('verificationCode').value.trim();
+    const resultDiv = document.getElementById('verificationResult');
+    
+    if (!code) {
+        resultDiv.style.display = 'none';
+        return;
+    }
+    
+    try {
+        const verificationDoc = await db.collection('verificationCodes').doc(code).get();
+        
+        if (verificationDoc.exists) {
+            const data = verificationDoc.data();
+            const subjects = data.subjects || [];
+            const subjectsText = subjects.length > 0 ? subjects.join(', ') : 'No subjects recorded';
+            
+            resultDiv.innerHTML = `
+                <div class="verification-success">
+                    <h4><i class="fas fa-check-circle"></i> Transcript Verified</h4>
+                    <div class="verification-details">
+                        <p><strong>Student:</strong> ${data.studentName || 'Unknown'}</p>
+                        <p><strong>Email:</strong> ${data.studentEmail || 'Unknown'}</p>
+                        <p><strong>Exams Completed:</strong> ${data.examCount || 0}</p>
+                        <p><strong>Subjects:</strong> ${subjectsText}</p>
+                        <p><strong>Overall Average:</strong> ${data.overallPercentage || 0}%</p>
+                        <p><strong>Generated:</strong> ${data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Unknown'}</p>
+                    </div>
+                </div>
+            `;
+            resultDiv.className = 'verification-result success';
+        } else {
+            resultDiv.innerHTML = `
+                <div class="verification-error">
+                    <h4><i class="fas fa-times-circle"></i> Invalid Code</h4>
+                    <p>The verification code you entered is not valid or has expired.</p>
+                </div>
+            `;
+            resultDiv.className = 'verification-result error';
+        }
+        
+        resultDiv.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Verification error:', error);
+        resultDiv.innerHTML = `
+            <div class="verification-error">
+                <h4><i class="fas fa-exclamation-triangle"></i> Verification Error</h4>
+                <p>Unable to verify the code. Please try again.</p>
+            </div>
+        `;
+        resultDiv.className = 'verification-result error';
+        resultDiv.style.display = 'block';
+    }
+}
+
+function showVerificationCenter() {
+    hideAllSections();
+    updateActiveNav('Verification Center');
+    
+    let verificationView = document.getElementById('verificationCenterView');
+    if (!verificationView) {
+        verificationView = document.createElement('div');
+        verificationView.id = 'verificationCenterView';
+        verificationView.className = 'dashboard-section';
+        verificationView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-shield-alt"></i> Transcript Verification Center</h2>
+                <button class="btn btn-outline" onclick="showDashboard()"><i class="fas fa-arrow-left"></i> Back to Dashboard</button>
+            </div>
+            <div class="section-content">
+                <div class="verification-form" style="background: white; padding: 24px; border-radius: 12px; max-width: 600px; margin: 0 auto;">
+                    <h3 style="margin: 0 0 20px 0; text-align: center;">Verify Transcript Authenticity</h3>
+                    <p style="text-align: center; color: #64748b; margin-bottom: 24px;">Enter the verification code from the transcript to verify its authenticity</p>
+                    
+                    <div class="form-group">
+                        <label>Verification Code</label>
+                        <input type="text" id="verificationCode" placeholder="Enter verification code" onkeyup="checkCodeRealTime()" style="width: 100%; padding: 12px; font-size: 16px; text-align: center; text-transform: uppercase;">
+                    </div>
+                    
+                    <div id="verificationResult" style="display: none; margin-top: 20px;"></div>
+                    
+                    <div style="text-align: center; margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="verifyTranscript()">
+                            <i class="fas fa-search"></i> Verify Code
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(verificationView);
+    }
+    
+    verificationView.style.display = 'block';
+}
+
+function showTeacherManagement() {
+    hideAllSections();
+    updateActiveNav('Manage Teachers');
+    
+    let teacherView = document.getElementById('teacherManagementView');
+    if (!teacherView) {
+        teacherView = document.createElement('div');
+        teacherView.id = 'teacherManagementView';
+        teacherView.className = 'dashboard-section';
+        teacherView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-chalkboard-teacher"></i> Teacher Management</h2>
+                <button class="btn btn-outline" onclick="showDashboard()"><i class="fas fa-arrow-left"></i> Back to Dashboard</button>
+            </div>
+            <div class="section-content">
+                <div class="teacher-actions" style="margin-bottom: 24px;">
+                    <button class="btn btn-primary" onclick="showAddTeacherForm()">
+                        <i class="fas fa-user-plus"></i> Add New Teacher
+                    </button>
+                    <button class="btn btn-outline" onclick="showSchoolSettings()">
+                        <i class="fas fa-school"></i> School Settings
+                    </button>
+                </div>
+                
+                <div id="addTeacherForm" class="add-teacher-form" style="display: none; background: white; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                    <h3 style="margin: 0 0 20px 0;">Add New Teacher</h3>
+                    <form id="newTeacherForm">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                            <div class="form-group">
+                                <label>Full Name</label>
+                                <input type="text" id="newTeacherName" required placeholder="Enter teacher's full name">
+                            </div>
+                            <div class="form-group">
+                                <label>Email Address</label>
+                                <input type="email" id="newTeacherEmail" required placeholder="teacher@school.com">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label>Subject/Department</label>
+                            <input type="text" id="newTeacherSubject" placeholder="e.g., Mathematics, Science, English">
+                        </div>
+                        <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                            <p style="margin: 0; color: #0c4a6e; font-size: 14px;">
+                                <i class="fas fa-info-circle"></i> <strong>Default Password:</strong> The new teacher will receive the default password "password" and will be prompted to change it on first login.
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-user-plus"></i> Create Teacher Account
+                            </button>
+                            <button type="button" class="btn btn-outline" onclick="hideAddTeacherForm()">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div id="schoolSettingsForm" class="school-settings-form" style="display: none; background: white; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                    <h3 style="margin: 0 0 20px 0;">School Settings</h3>
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label>School Name</label>
+                        <input type="text" id="schoolName" placeholder="Enter your school/institution name" value="Online Exam Portal">
+                        <p style="margin: 8px 0 0 0; font-size: 14px; color: #64748b;">This name will appear on all transcripts and official documents</p>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-primary" onclick="saveSchoolSettings()">
+                            <i class="fas fa-save"></i> Save Settings
+                        </button>
+                        <button class="btn btn-outline" onclick="hideSchoolSettings()">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="teachersContainer">Loading teachers...</div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(teacherView);
+    }
+    
+    teacherView.style.display = 'block';
+    loadTeachers();
+}
+
+function showAddTeacherForm() {
+    document.getElementById('addTeacherForm').style.display = 'block';
+    document.getElementById('schoolSettingsForm').style.display = 'none';
+}
+
+function hideAddTeacherForm() {
+    document.getElementById('addTeacherForm').style.display = 'none';
+    document.getElementById('newTeacherForm').reset();
+}
+
+function showSchoolSettings() {
+    document.getElementById('schoolSettingsForm').style.display = 'block';
+    document.getElementById('addTeacherForm').style.display = 'none';
+    loadSchoolSettings();
+}
+
+function hideSchoolSettings() {
+    document.getElementById('schoolSettingsForm').style.display = 'none';
+}
+
+async function loadSchoolSettings() {
+    try {
+        const settingsDoc = await db.collection('settings').doc('school').get();
+        if (settingsDoc.exists) {
+            const settings = settingsDoc.data();
+            document.getElementById('schoolName').value = settings.name || 'Online Exam Portal';
+        }
+    } catch (error) {
+        console.error('Error loading school settings:', error);
+    }
+}
+
+async function saveSchoolSettings() {
+    const schoolName = document.getElementById('schoolName').value.trim();
+    
+    if (!schoolName) {
+        showNotification('Please enter a school name', 'error');
+        return;
+    }
+    
+    try {
+        await db.collection('settings').doc('school').set({
+            name: schoolName,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: currentUser.uid
+        });
+        
+        showNotification('School settings saved successfully!');
+        hideSchoolSettings();
+    } catch (error) {
+        showNotification('Error saving settings: ' + error.message, 'error');
+    }
+}
+
+async function loadTeachers() {
+    const container = document.getElementById('teachersContainer');
+    
+    try {
+        const teachersSnapshot = await db.collection('users').where('role', '==', 'teacher').get();
+        
+        if (teachersSnapshot.empty) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #64748b;">
+                    <i class="fas fa-chalkboard-teacher" style="font-size: 48px; margin-bottom: 16px;"></i>
+                    <h3 style="margin-bottom: 8px; color: #1e293b;">No teachers found</h3>
+                    <p>Add teachers to manage the system</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let teachersHTML = '<div class="teachers-grid" style="display: grid; gap: 16px;">';
+        
+        teachersSnapshot.forEach(doc => {
+            const teacher = doc.data();
+            const isCurrentUser = doc.id === currentUser.uid;
+            
+            teachersHTML += `
+                <div class="teacher-card" style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                                <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">
+                                    ${teacher.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                </div>
+                                <div>
+                                    <h4 style="margin: 0; color: #1e293b;">${teacher.name}${isCurrentUser ? ' (You)' : ''}</h4>
+                                    <p style="margin: 2px 0 0 0; color: #64748b; font-size: 14px;">${teacher.email}</p>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                ${teacher.isITTeacher ? '<span style="background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 500;">IT Admin</span>' : ''}
+                                <span style="background: #f0f4ff; color: #667eea; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 500;">Teacher</span>
+                                <span style="background: #f3f4f6; color: #374151; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 500;">
+                                    Joined: ${teacher.createdAt ? teacher.createdAt.toDate().toLocaleDateString() : 'Unknown'}
+                                </span>
+                            </div>
+                        </div>
+                        ${!isCurrentUser ? `
+                            <button class="btn btn-danger btn-sm" onclick="removeTeacher('${doc.id}', '${teacher.name}')">
+                                <i class="fas fa-trash"></i> Remove
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        
+        teachersHTML += '</div>';
+        container.innerHTML = teachersHTML;
+        
+    } catch (error) {
+        container.innerHTML = '<p style="color: #ef4444;">Error loading teachers. Please refresh the page.</p>';
+    }
+}
+
+// Handle new teacher form submission
+document.addEventListener('submit', async (e) => {
+    if (e.target.id === 'newTeacherForm') {
+        e.preventDefault();
+        
+        const name = document.getElementById('newTeacherName').value.trim();
+        const email = document.getElementById('newTeacherEmail').value.trim().toLowerCase();
+        const subject = document.getElementById('newTeacherSubject').value.trim();
+        
+        if (!name || !email) {
+            showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        try {
+            // Check if email already exists
+            const existingUser = await db.collection('users').where('email', '==', email).get();
+            if (!existingUser.empty) {
+                showNotification('A user with this email already exists', 'error');
+                return;
+            }
+            
+            // Create teacher account with default password
+            const userCredential = await auth.createUserWithEmailAndPassword(email, 'password');
+            const user = userCredential.user;
+            
+            // Save teacher data
+            await db.collection('users').doc(user.uid).set({
+                name: name,
+                email: email,
+                role: 'teacher',
+                subject: subject,
+                isNewTeacher: true,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdBy: currentUser.uid
+            });
+            
+            showNotification(`Teacher account created successfully! Default password: "password"`);
+            hideAddTeacherForm();
+            loadTeachers();
+            
+        } catch (error) {
+            showNotification('Error creating teacher account: ' + error.message, 'error');
+        }
+    }
+});
+
+async function removeTeacher(teacherId, teacherName) {
+    if (!confirm(`Are you sure you want to remove ${teacherName} from the system? This action cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        // Delete user document
+        await db.collection('users').doc(teacherId).delete();
+        
+        showNotification(`${teacherName} has been removed from the system`);
+        loadTeachers();
+        
+    } catch (error) {
+        showNotification('Error removing teacher: ' + error.message, 'error');
+    }
+}
+
+function showReportsCenter() {
+    hideAllSections();
+    updateActiveNav('Reports Center');
+    
+    let reportsView = document.getElementById('reportsCenterView');
+    if (!reportsView) {
+        reportsView = document.createElement('div');
+        reportsView.id = 'reportsCenterView';
+        reportsView.className = 'dashboard-section';
+        reportsView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-chart-line"></i> Reports Center</h2>
+                <button class="btn btn-outline" onclick="showDashboard()"><i class="fas fa-arrow-left"></i> Back to Dashboard</button>
+            </div>
+            <div class="section-content">
+                <div class="reports-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                    <div class="report-card" style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; cursor: pointer;" onclick="showAllResultsView()">
+                        <div style="display: flex; align-items: center; margin-bottom: 16px;">
+                            <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-right: 16px;">
+                                <i class="fas fa-chart-bar" style="color: white; font-size: 20px;"></i>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; color: #1e293b;">Comprehensive Results</h3>
+                                <p style="margin: 4px 0 0 0; color: #64748b; font-size: 14px;">Detailed exam results with filters</p>
+                            </div>
+                        </div>
+                        <p style="color: #64748b; margin: 0;">View all exam results with date range filters, performance analytics, and export options.</p>
+                    </div>
+                    
+                    <div class="report-card" style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; cursor: pointer;" onclick="showTranscriptGenerator()">
+                        <div style="display: flex; align-items: center; margin-bottom: 16px;">
+                            <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-right: 16px;">
+                                <i class="fas fa-graduation-cap" style="color: white; font-size: 20px;"></i>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; color: #1e293b;">Student Transcripts</h3>
+                                <p style="margin: 4px 0 0 0; color: #64748b; font-size: 14px;">Official academic transcripts</p>
+                            </div>
+                        </div>
+                        <p style="color: #64748b; margin: 0;">Generate official student transcripts with grades, rankings, and subject summaries.</p>
+                    </div>
+                    
+                    <div class="report-card" style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; cursor: pointer;" onclick="showLeaderboard()">
+                        <div style="display: flex; align-items: center; margin-bottom: 16px;">
+                            <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #f59e0b, #d97706); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-right: 16px;">
+                                <i class="fas fa-trophy" style="color: white; font-size: 20px;"></i>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; color: #1e293b;">Leaderboard</h3>
+                                <p style="margin: 4px 0 0 0; color: #64748b; font-size: 14px;">Student rankings and performance</p>
+                            </div>
+                        </div>
+                        <p style="color: #64748b; margin: 0;">View student rankings, top performers, and class performance statistics.</p>
+                    </div>
+                    
+                    <div class="report-card" style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; cursor: pointer;" onclick="showStudentManagement()">
+                        <div style="display: flex; align-items: center; margin-bottom: 16px;">
+                            <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-right: 16px;">
+                                <i class="fas fa-users-cog" style="color: white; font-size: 20px;"></i>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; color: #1e293b;">Student Management</h3>
+                                <p style="margin: 4px 0 0 0; color: #64748b; font-size: 14px;">Manage student accounts and performance</p>
+                            </div>
+                        </div>
+                        <p style="color: #64748b; margin: 0;">Manage student accounts, view detailed performance, and generate individual reports.</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(reportsView);
+    }
+    
+    reportsView.style.display = 'block';
+}
+
+function showVerificationCenter() {
+    hideAllSections();
+    updateActiveNav('Verify Transcript');
+    
+    let verificationView = document.getElementById('verificationCenterView');
+    if (!verificationView) {
+        verificationView = document.createElement('div');
+        verificationView.id = 'verificationCenterView';
+        verificationView.className = 'dashboard-section';
+        verificationView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-shield-alt"></i> Transcript Verification Center</h2>
+                <button class="btn btn-outline" onclick="showDashboard()"><i class="fas fa-arrow-left"></i> Back to Dashboard</button>
+            </div>
+            <div class="section-content">
+                <div class="verification-form" style="background: white; padding: 32px; border-radius: 12px; max-width: 600px; margin: 0 auto;">
+                    <div style="text-align: center; margin-bottom: 32px;">
+                        <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                            <i class="fas fa-shield-check" style="color: white; font-size: 32px;"></i>
+                        </div>
+                        <h3 style="margin: 0 0 8px 0; color: #1e293b;">Verify Official Transcript</h3>
+                        <p style="margin: 0; color: #64748b;">Enter the verification code from the transcript to verify its authenticity</p>
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom: 24px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">Verification Code</label>
+                        <input type="text" id="verificationCode" placeholder="e.g., EPMJ6YJIIULWE" style="width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 16px; text-transform: uppercase;" oninput="this.value = this.value.toUpperCase(); checkCodeRealTime()">
+                        <p style="margin: 8px 0 0 0; font-size: 14px; color: #64748b;">Enter the verification code exactly as shown on the transcript</p>
+                    </div>
+                    
+                    <button class="btn btn-primary btn-lg" onclick="verifyTranscript()" style="width: 100%; margin-bottom: 24px;">
+                        <i class="fas fa-search"></i> Verify Transcript
+                    </button>
+                    
+                    <div id="verificationResult" style="display: none;"></div>
+                    
+                    <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 16px; margin-top: 24px;">
+                        <h4 style="margin: 0 0 8px 0; color: #0c4a6e; font-size: 14px;"><i class="fas fa-info-circle"></i> About Verification</h4>
+                        <ul style="margin: 0; padding-left: 20px; color: #0c4a6e; font-size: 13px;">
+                            <li>Each official transcript has a unique verification code</li>
+                            <li>Verification codes are generated when transcripts are created</li>
+                            <li>This system ensures transcript authenticity and prevents forgery</li>
+                            <li>Contact the issuing institution if you have verification concerns</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(verificationView);
+    }
+    
+    verificationView.style.display = 'block';
+}
+
+async function verifyTranscript() {
+    const code = document.getElementById('verificationCode').value.trim().toUpperCase();
+    const resultDiv = document.getElementById('verificationResult');
+    
+    if (!code) {
+        showNotification('Please enter a verification code', 'error');
+        return;
+    }
+    
+    try {
+        const verificationDoc = await db.collection('verificationCodes').doc(code).get();
+        
+        if (verificationDoc.exists) {
+            const data = verificationDoc.data();
+            resultDiv.innerHTML = `
+                <div style="background: #dcfce7; border: 1px solid #16a34a; border-radius: 8px; padding: 20px; text-align: center;">
+                    <div style="width: 48px; height: 48px; background: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                        <i class="fas fa-check" style="color: white; font-size: 20px;"></i>
+                    </div>
+                    <h3 style="margin: 0 0 8px 0; color: #166534;">Transcript Verified</h3>
+                    <p style="margin: 0 0 16px 0; color: #166534;">This transcript is authentic and was issued by Online Exam Portal</p>
+                    <div style="background: white; border-radius: 6px; padding: 12px; margin-top: 16px; text-align: left;">
+                        <div style="font-size: 14px; color: #374151;">
+                            <strong>Verification Details:</strong><br>
+                            Student: ${data.studentName}<br>
+                            Email: ${data.studentEmail}<br>
+                            Exams: ${data.examCount} completed<br>
+                            Subjects: ${data.subjects.join(', ')}<br>
+                            Overall Average: ${data.overallPercentage}%<br>
+                            Issued: ${data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'Unknown'}<br>
+                            Code: ${code}
+                        </div>
+                    </div>
+                </div>
+            `;
+            showNotification('Transcript verified successfully!', 'success');
+        } else {
+            resultDiv.innerHTML = `
+                <div style="background: #fee2e2; border: 1px solid #ef4444; border-radius: 8px; padding: 20px; text-align: center;">
+                    <div style="width: 48px; height: 48px; background: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                        <i class="fas fa-times" style="color: white; font-size: 20px;"></i>
+                    </div>
+                    <h3 style="margin: 0 0 8px 0; color: #991b1b;">❌ Verification Failed</h3>
+                    <p style="margin: 0; color: #991b1b;">The verification code "${code}" is not valid</p>
+                    <div style="background: white; border-radius: 6px; padding: 12px; margin-top: 16px;">
+                        <div style="font-size: 14px; color: #374151;">
+                            <strong>Possible Reasons:</strong><br>
+                            • Incorrect verification code<br>
+                            • Transcript not issued by this system<br>
+                            • Code may have been tampered with
+                        </div>
+                    </div>
+                </div>
+            `;
+            showNotification('Verification failed - code not found', 'error');
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `
+            <div style="background: #fee2e2; border: 1px solid #ef4444; border-radius: 8px; padding: 20px; text-align: center;">
+                <h3 style="color: #991b1b;">Error during verification</h3>
+                <p style="color: #991b1b;">Please try again later</p>
+            </div>
+        `;
+        showNotification('Error during verification: ' + error.message, 'error');
+    }
+    
+    resultDiv.style.display = 'block';
 }
 
 // Close modal when clicking outside

@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - users can read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && 
+        resource.data.role == 'teacher' || 
+        request.auth.uid == userId;
+    }
+    
+    // Exams collection - teachers can create/edit, students can read
+    match /exams/{examId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+    
+    // Questions collection - teachers can create/edit, students can read during exams
+    match /questions/{questionId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+    
+    // Submissions collection - students can create their own, teachers can read all
+    match /submissions/{submissionId} {
+      allow read: if request.auth != null && (
+        resource.data.studentId == request.auth.uid ||
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
+      );
+      allow create: if request.auth != null && 
+        request.resource.data.studentId == request.auth.uid;
+      allow update: if request.auth != null && (
+        resource.data.studentId == request.auth.uid ||
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
+      );
+    }
+    
+    // Results collection - students can read their own, teachers can read all
+    match /results/{resultId} {
+      allow read: if request.auth != null && (
+        resource.data.studentId == request.auth.uid ||
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
+      );
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+  }
+}

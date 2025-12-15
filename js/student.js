@@ -46,7 +46,8 @@ async function loadUserSubmissions() {
                     ...submission,
                     score: score.scored,
                     total: score.total,
-                    percentage: score.total > 0 ? ((score.scored / score.total) * 100).toFixed(1) : 0
+                    percentage: score.total > 0 ? ((score.scored / score.total) * 100).toFixed(1) : 0,
+                    timeSpent: submission.timeSpent || 0
                 });
             }
         }
@@ -223,8 +224,8 @@ function createExamCard(examId, exam, hasSubmitted, submission = null) {
     card.innerHTML = `
         <div class="exam-header">
             <div>
-                <div class="exam-title">${exam.title}</div>
-                <div class="exam-subject"><i class="fas fa-book"></i> ${exam.subject}</div>
+                <div class="exam-title">Exam Title: ${exam.title}</div>
+                <div class="exam-subject">Subject: ${exam.subject}</div>
             </div>
             <div class="exam-status ${statusClass}">${statusText}</div>
         </div>
@@ -240,16 +241,20 @@ function createExamCard(examId, exam, hasSubmitted, submission = null) {
             </div>
             <div class="meta-item">
                 <i class="fas fa-calendar-alt meta-icon"></i>
-                <span><strong>Start:</strong> ${startTime ? startTime.toLocaleString() : 'Not set'}</span>
+                <span><strong>Start:</strong><br>${startTime ? startTime.toLocaleDateString() + '<br>' + startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Not set'}</span>
             </div>
             <div class="meta-item">
                 <i class="fas fa-calendar-check meta-icon"></i>
-                <span><strong>End:</strong> ${endTime ? endTime.toLocaleString() : 'Not set'}</span>
+                <span><strong>End:</strong><br>${endTime ? endTime.toLocaleDateString() + '<br>' + endTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Not set'}</span>
             </div>
             ${hasSubmitted && submission ? `
             <div class="meta-item score-item">
                 <i class="fas fa-chart-line meta-icon"></i>
                 <span><strong>Your Score:</strong> ${submission.score}/${submission.total} (${submission.percentage}%)</span>
+            </div>
+            <div class="meta-item">
+                <i class="fas fa-stopwatch meta-icon"></i>
+                <span><strong>Time Spent:</strong> ${submission.timeSpent ? Math.round(submission.timeSpent / 60) : 0} minutes</span>
             </div>
             ` : ''}
         </div>
@@ -354,6 +359,7 @@ function showProfile() {
                             <div class="profile-info">
                                 <h3 id="profileName">Loading...</h3>
                                 <p id="profileEmail">Loading...</p>
+                                <p style="margin: 4px 0; font-size: 14px; color: #667eea; font-weight: 500;">Student ID: <span id="studentId">Loading...</span></p>
                                 <span class="profile-role"><i class="fas fa-user-graduate"></i> Student</span>
                             </div>
                         </div>
@@ -419,6 +425,7 @@ async function loadProfileData() {
         if (userData) {
             document.getElementById('profileName').textContent = userData.name;
             document.getElementById('profileEmail').textContent = userData.email;
+            document.getElementById('studentId').textContent = currentUser.uid.substring(0, 8).toUpperCase();
             document.getElementById('profileAvatar').textContent = userData.name.split(' ').map(n => n[0]).join('').toUpperCase();
             document.getElementById('updateName').value = userData.name;
             document.getElementById('updateEmail').value = userData.email;
@@ -458,6 +465,8 @@ function hideOtherSections() {
     if (leaderboardView) leaderboardView.style.display = 'none';
     const studentResultView = document.getElementById('studentResultView');
     if (studentResultView) studentResultView.style.display = 'none';
+    const myTranscriptView = document.getElementById('myTranscriptView');
+    if (myTranscriptView) myTranscriptView.style.display = 'none';
 }
 
 function updateActiveNav(activeItem) {
@@ -813,11 +822,13 @@ async function loadStudentLeaderboard() {
             .get();
         
         if (examFilter) {
+            const currentValue = examFilter.value;
             examFilter.innerHTML = '<option value="">All Exams</option>';
             examSnapshot.forEach(doc => {
                 const exam = doc.data();
                 examFilter.innerHTML += `<option value="${doc.id}">${exam.title} - ${exam.subject}</option>`;
             });
+            examFilter.value = currentValue;
         }
         
         const selectedExamId = examFilter?.value || '';
@@ -995,6 +1006,299 @@ async function loadStudentResult(examId) {
         console.error('Error loading student result:', error);
         container.innerHTML = `<p style="color: #ef4444;">Error loading result: ${error.message}</p>`;
     }
+}
+
+function showMyTranscript() {
+    hideAllSections();
+    updateActiveNav('My Transcript');
+    
+    let transcriptView = document.getElementById('myTranscriptView');
+    if (!transcriptView) {
+        transcriptView = document.createElement('div');
+        transcriptView.id = 'myTranscriptView';
+        transcriptView.className = 'dashboard-section';
+        transcriptView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-graduation-cap"></i> My Official Transcript</h2>
+                <button class="btn btn-outline" onclick="showDashboard()"><i class="fas fa-arrow-left"></i> Back to Dashboard</button>
+            </div>
+            <div class="section-content">
+                <div class="transcript-options" style="background: white; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                    <h3 style="margin: 0 0 16px 0;">Generate Your Official Transcript</h3>
+                    <p style="color: #64748b; margin-bottom: 20px;">Select which exams to include in your official academic transcript</p>
+                    
+                    <div id="studentExamSelection" style="margin-bottom: 20px;">
+                        <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                            <button class="btn btn-outline btn-sm" onclick="selectAllStudentExams()">Select All</button>
+                            <button class="btn btn-outline btn-sm" onclick="deselectAllStudentExams()">Deselect All</button>
+                        </div>
+                        <div id="studentExamCheckboxes" style="max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;"></div>
+                    </div>
+                    
+                    <button class="btn btn-primary btn-lg" onclick="generateMyTranscript()" id="generateMyTranscriptBtn">
+                        <i class="fas fa-file-alt"></i> Generate My Official Transcript
+                    </button>
+                </div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(transcriptView);
+    }
+    
+    transcriptView.style.display = 'block';
+    loadMyExamsForTranscript();
+}
+
+async function loadMyExamsForTranscript() {
+    const container = document.getElementById('studentExamCheckboxes');
+    
+    try {
+        const myExams = [];
+        
+        for (const [examId, submission] of userSubmissions) {
+            const examDoc = await db.collection('exams').doc(examId).get();
+            if (examDoc.exists) {
+                const exam = examDoc.data();
+                myExams.push({
+                    id: examId,
+                    title: exam.title,
+                    subject: exam.subject,
+                    date: submission.submittedAt ? submission.submittedAt.toDate() : null,
+                    percentage: parseFloat(submission.percentage)
+                });
+            }
+        }
+        
+        if (myExams.length === 0) {
+            container.innerHTML = '<p style="color: #64748b; text-align: center; padding: 20px;">No completed exams found. Complete some exams first.</p>';
+            document.getElementById('generateMyTranscriptBtn').disabled = true;
+            return;
+        }
+        
+        myExams.sort((a, b) => (b.date || new Date(0)) - (a.date || new Date(0)));
+        
+        container.innerHTML = myExams.map(exam => `
+            <div style="display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9;">
+                <input type="checkbox" id="myExam_${exam.id}" value="${exam.id}" checked style="margin-right: 12px;">
+                <div style="flex: 1;">
+                    <div style="font-weight: 500; color: #1e293b;">${exam.title}</div>
+                    <div style="font-size: 14px; color: #64748b;">${exam.subject} • ${exam.date ? exam.date.toLocaleDateString() : 'No date'}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-weight: 600; color: ${exam.percentage >= 70 ? '#16a34a' : exam.percentage >= 50 ? '#d97706' : '#ef4444'};">${exam.percentage.toFixed(1)}%</div>
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        container.innerHTML = '<p style="color: #ef4444;">Error loading exams. Please refresh.</p>';
+    }
+}
+
+function selectAllStudentExams() {
+    document.querySelectorAll('#studentExamCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = true);
+}
+
+function deselectAllStudentExams() {
+    document.querySelectorAll('#studentExamCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
+}
+
+async function generateMyTranscript() {
+    const selectedExams = Array.from(document.querySelectorAll('#studentExamCheckboxes input[type="checkbox"]:checked')).map(cb => cb.value);
+    
+    if (selectedExams.length === 0) {
+        showNotification('Please select at least one exam', 'error');
+        return;
+    }
+    
+    try {
+        showNotification('Generating your official transcript...', 'info');
+        
+        const userDoc = await db.collection('users').doc(currentUser.uid).get();
+        const userData = userDoc.data();
+        
+        const studentResults = [];
+        const subjectSummary = {};
+        
+        for (const examId of selectedExams) {
+            const submission = userSubmissions.get(examId);
+            const examDoc = await db.collection('exams').doc(examId).get();
+            
+            if (examDoc.exists && submission) {
+                const exam = examDoc.data();
+                const percentage = parseFloat(submission.percentage);
+                
+                studentResults.push({
+                    title: exam.title,
+                    subject: exam.subject,
+                    date: submission.submittedAt ? submission.submittedAt.toDate() : null,
+                    score: submission.score,
+                    total: submission.total,
+                    percentage: percentage,
+                    timeSpent: submission.timeSpent ? Math.round(submission.timeSpent / 60) : 0
+                });
+                
+                if (!subjectSummary[exam.subject]) {
+                    subjectSummary[exam.subject] = { totalScore: 0, totalMax: 0, count: 0, exams: [] };
+                }
+                subjectSummary[exam.subject].totalScore += submission.score;
+                subjectSummary[exam.subject].totalMax += submission.total;
+                subjectSummary[exam.subject].count += 1;
+                subjectSummary[exam.subject].exams.push({ title: exam.title, percentage });
+            }
+        }
+        
+        await generateStudentOfficialTranscript(userData, studentResults, subjectSummary, currentUser.uid);
+        
+    } catch (error) {
+        showNotification('Error generating transcript: ' + error.message, 'error');
+    }
+}
+
+function generateVerificationCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+async function storeVerificationCode(code, student, exams) {
+    try {
+        await db.collection('verificationCodes').doc(code).set({
+            studentId: student.id,
+            studentName: student.name,
+            studentEmail: student.email,
+            exams: exams.map(exam => ({
+                title: exam.title,
+                subject: exam.subject,
+                score: exam.score,
+                total: exam.total,
+                percentage: exam.percentage,
+                date: exam.date
+            })),
+            generatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            generatedBy: currentUser.uid
+        });
+    } catch (error) {
+        console.error('Error storing verification code:', error);
+    }
+}
+
+async function generateStudentOfficialTranscript(userData, studentResults, subjectSummary, studentId) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const overallScore = studentResults.reduce((sum, r) => sum + r.score, 0);
+    const overallMax = studentResults.reduce((sum, r) => sum + r.total, 0);
+    const overallPercentage = overallMax > 0 ? ((overallScore / overallMax) * 100) : 0;
+    
+    // Generate and store verification code first
+    const verificationCode = generateVerificationCode();
+    await storeVerificationCode(verificationCode, { id: studentId, name: userData?.name, email: userData?.email }, studentResults);
+    
+    // Header
+    doc.setFillColor(25, 46, 94);
+    doc.rect(0, 0, 210, 45, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ONLINE EXAM PORTAL', 105, 20, { align: 'center' });
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'normal');
+    doc.text('OFFICIAL ACADEMIC TRANSCRIPT', 105, 30, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text('Academic Year 2024-2025', 105, 38, { align: 'center' });
+    
+    // Student Information
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('STUDENT INFORMATION', 20, 60);
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, 62, 190, 62);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Name: ${userData?.name || 'Unknown'}`, 20, 72);
+    doc.text(`Email: ${userData?.email || 'Unknown'}`, 20, 80);
+    doc.text(`Student ID: ${studentId.substring(0, 8).toUpperCase()}`, 20, 88);
+    doc.text(`Issue Date: ${new Date().toLocaleDateString()}`, 120, 72);
+    doc.text(`Total Exams: ${studentResults.length}`, 120, 80);
+    doc.text(`Overall Average: ${overallPercentage.toFixed(1)}%`, 120, 88);
+    
+    // Academic Record
+    let yPos = 110;
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ACADEMIC RECORD', 20, yPos);
+    doc.line(20, yPos + 2, 190, yPos + 2);
+    yPos += 15;
+    
+    // Table headers
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Exam Title', 20, yPos);
+    doc.text('Subject', 80, yPos);
+    doc.text('Date', 120, yPos);
+    doc.text('Score', 150, yPos);
+    doc.text('Grade', 175, yPos);
+    doc.line(20, yPos + 2, 190, yPos + 2);
+    yPos += 10;
+    
+    // Exam details
+    doc.setFont('helvetica', 'normal');
+    studentResults.forEach(result => {
+        if (yPos > 250) {
+            doc.addPage();
+            yPos = 30;
+        }
+        
+        const grade = result.percentage >= 90 ? 'A+' : result.percentage >= 80 ? 'A' : result.percentage >= 70 ? 'B' : result.percentage >= 60 ? 'C' : result.percentage >= 50 ? 'D' : 'F';
+        
+        doc.text(result.title.substring(0, 25), 20, yPos);
+        doc.text(result.subject.substring(0, 15), 80, yPos);
+        doc.text(result.date ? result.date.toLocaleDateString() : 'N/A', 120, yPos);
+        doc.text(`${result.score}/${result.total}`, 150, yPos);
+        doc.text(grade, 175, yPos);
+        yPos += 8;
+    });
+    
+    // Subject Summary
+    yPos += 10;
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SUBJECT SUMMARY', 20, yPos);
+    doc.line(20, yPos + 2, 190, yPos + 2);
+    yPos += 15;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Subject', 20, yPos);
+    doc.text('Exams', 80, yPos);
+    doc.text('Average', 120, yPos);
+    doc.text('Grade', 160, yPos);
+    doc.line(20, yPos + 2, 190, yPos + 2);
+    yPos += 10;
+    
+    doc.setFont('helvetica', 'normal');
+    Object.entries(subjectSummary).forEach(([subject, data]) => {
+        const avg = (data.totalScore / data.totalMax) * 100;
+        const grade = avg >= 90 ? 'A+' : avg >= 80 ? 'A' : avg >= 70 ? 'B' : avg >= 60 ? 'C' : avg >= 50 ? 'D' : 'F';
+        
+        doc.text(subject, 20, yPos);
+        doc.text(data.count.toString(), 80, yPos);
+        doc.text(`${avg.toFixed(1)}%`, 120, yPos);
+        doc.text(grade, 160, yPos);
+        yPos += 8;
+    });
+    
+    // Footer with verification
+    doc.setFontSize(10);
+    doc.text(`Verification Code: ${verificationCode}`, 20, 285);
+    doc.text('This is an official document generated by Online Exam Portal', 20, 290);
+    
+    doc.save(`${userData?.name || 'Student'}_Official_Transcript.pdf`);
+    showNotification(`Your official transcript has been generated! Verification code: ${verificationCode}`);
 }
 
 // Close sidebar when clicking nav links on mobile
