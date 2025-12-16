@@ -110,6 +110,12 @@ function showCreateExam() {
             examForm.setAttribute('data-handler-attached', 'true');
         }
         
+        // Load teacher classes for assignment
+        loadTeacherClassesForExam();
+        
+        // Load subjects for exam
+        loadExamSubjects();
+        
         // Re-attach event listeners for dynamic end time calculation
         const startInput = document.getElementById('examStartTime');
         const durationInput = document.getElementById('examDuration');
@@ -243,6 +249,18 @@ function hideAllSections() {
     if (verificationView) verificationView.style.display = 'none';
     const teacherManagementView = document.getElementById('teacherManagementView');
     if (teacherManagementView) teacherManagementView.style.display = 'none';
+    const classManagementView = document.getElementById('classManagementView');
+    if (classManagementView) classManagementView.style.display = 'none';
+    const createClassView = document.getElementById('createClassView');
+    if (createClassView) createClassView.style.display = 'none';
+    const classDetailView = document.getElementById('classDetailView');
+    if (classDetailView) classDetailView.style.display = 'none';
+    const editClassView = document.getElementById('editClassView');
+    if (editClassView) editClassView.style.display = 'none';
+    const classAnalyticsView = document.getElementById('classAnalyticsView');
+    if (classAnalyticsView) classAnalyticsView.style.display = 'none';
+    const classExamAnalyticsView = document.getElementById('classExamAnalyticsView');
+    if (classExamAnalyticsView) classExamAnalyticsView.style.display = 'none';
 }
 
 let allStudents = [];
@@ -1538,24 +1556,46 @@ document.addEventListener('click', (e) => {
 
 // Modal functions
 function showValidationModal(message) {
-    document.getElementById('validationMessage').textContent = message;
-    document.getElementById('validationModal').classList.remove('hidden');
-}
-
-function hideValidationModal() {
-    document.getElementById('validationModal').classList.add('hidden');
+    createModal(
+        'validationModal',
+        'Validation Error',
+        message,
+        '<button class="btn btn-primary" onclick="hideModal(\'validationModal\')">OK</button>',
+        { danger: true, icon: 'fas fa-exclamation-triangle' }
+    );
 }
 
 function showSuccessModal(message) {
-    document.getElementById('successMessage').textContent = message;
-    document.getElementById('successModal').classList.remove('hidden');
-}
-
-function hideSuccessModal() {
-    document.getElementById('successModal').classList.add('hidden');
+    createModal(
+        'successModal',
+        'Success',
+        message,
+        '<button class="btn btn-primary" onclick="hideModal(\'successModal\')">OK</button>',
+        { icon: 'fas fa-check-circle' }
+    );
 }
 
 // Create exam function
+async function loadTeacherClassesForExam() {
+    try {
+        const snapshot = await db.collection('classes')
+            .where('teacherId', '==', currentUser.uid)
+            .where('isActive', '==', true)
+            .get();
+        
+        const classSelect = document.getElementById('examClasses');
+        if (classSelect) {
+            classSelect.innerHTML = '<option value="">All Students (No Class Restriction)</option>';
+            snapshot.docs.forEach(doc => {
+                const classData = doc.data();
+                classSelect.innerHTML += `<option value="${doc.id}">${classData.name} - ${classData.subject}</option>`;
+            });
+        }
+    } catch (error) {
+        console.error('Error loading classes:', error);
+    }
+}
+
 async function createExam() {
     
     if (examQuestions.length === 0) {
@@ -1587,6 +1627,12 @@ async function createExam() {
         }
     }
     
+    // Get selected classes
+    const classSelect = document.getElementById('examClasses');
+    const selectedClasses = Array.from(classSelect.selectedOptions)
+        .map(option => option.value)
+        .filter(value => value !== '');
+    
     const examData = {
         title: document.getElementById('examTitle').value,
         subject: document.getElementById('examSubject').value,
@@ -1596,7 +1642,9 @@ async function createExam() {
         instructions: instructionsEditor.root.innerHTML,
         createdBy: currentUser.uid,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        published: false
+        published: false,
+        assignedClasses: selectedClasses,
+        isClassSpecific: selectedClasses.length > 0
     };
     
     try {
@@ -1799,11 +1847,18 @@ let currentPublishExamId = null;
 
 function publishExam(examId) {
     currentPublishExamId = examId;
-    document.getElementById('publishModal').classList.remove('hidden');
+    createModal(
+        'publishModal',
+        'Publish Exam',
+        'Are you sure you want to publish this exam? Students will be able to take it once published.',
+        `<button class="btn btn-outline" onclick="hidePublishModal()">Cancel</button>
+         <button class="btn btn-primary" onclick="confirmPublishExam()">Publish Exam</button>`,
+        { icon: 'fas fa-rocket' }
+    );
 }
 
 function hidePublishModal() {
-    document.getElementById('publishModal').classList.add('hidden');
+    hideModal('publishModal');
     currentPublishExamId = null;
 }
 
@@ -1935,14 +1990,27 @@ let currentDeleteExamId = null;
 
 function deleteExam(examId) {
     currentDeleteExamId = examId;
-    document.getElementById('deleteConfirmText').value = '';
-    document.getElementById('confirmDeleteBtn').disabled = true;
-    document.getElementById('deleteExamModal').classList.remove('hidden');
+    createModal(
+        'deleteExamModal',
+        'Delete Exam',
+        `<p>This action will permanently delete the exam and all associated data.</p>
+         <p><strong>Type "DELETE" to confirm:</strong></p>
+         <input type="text" id="deleteConfirmText" placeholder="Type DELETE" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; margin-top: 8px;" oninput="toggleDeleteButton()">`,
+        `<button class="btn btn-outline" onclick="hideDeleteExam()">Cancel</button>
+         <button class="btn btn-danger" id="confirmDeleteBtn" onclick="confirmDeleteExam()" disabled>Delete Exam</button>`,
+        { danger: true, icon: 'fas fa-trash' }
+    );
 }
 
 function hideDeleteExam() {
-    document.getElementById('deleteExamModal').classList.add('hidden');
+    hideModal('deleteExamModal');
     currentDeleteExamId = null;
+}
+
+function toggleDeleteButton() {
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    const text = document.getElementById('deleteConfirmText').value;
+    confirmBtn.disabled = text !== 'DELETE';
 }
 
 // Enable delete button when "DELETE" is typed
@@ -2961,6 +3029,36 @@ async function generateDetailedReport() {
     }
 }
 
+// Reusable Modal System
+function createModal(id, title, content, buttons, options = {}) {
+    const modal = document.createElement('div');
+    modal.id = id;
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;';
+    
+    const width = options.width || '400px';
+    const maxHeight = options.maxHeight || '80vh';
+    const titleColor = options.danger ? '#ef4444' : '#1e293b';
+    const titleIcon = options.icon || '';
+    
+    modal.innerHTML = `
+        <div style="background: white; padding: 24px; border-radius: 12px; width: ${width}; max-width: 90vw; max-height: ${maxHeight}; overflow-y: auto;">
+            <h3 style="margin: 0 0 16px 0; color: ${titleColor};">${titleIcon ? `<i class="${titleIcon}"></i> ` : ''}${title}</h3>
+            <div style="margin-bottom: 20px;">${content}</div>
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                ${buttons}
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    return modal;
+}
+
+function hideModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) modal.remove();
+}
+
 function showNotification(message, type = 'success') {
     const toast = document.getElementById('notificationToast');
     const icon = toast.querySelector('.toast-icon');
@@ -3175,6 +3273,806 @@ function closeSidebar() {
     
     sidebar.classList.remove('show');
     overlay.classList.remove('show');
+}
+
+async function loadClasses() {
+    const container = document.getElementById('classesContainer');
+    
+    try {
+        const snapshot = await db.collection('classes')
+            .where('teacherId', '==', currentUser.uid)
+            .get();
+        
+        if (snapshot.empty) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #64748b;">
+                    <i class="fas fa-chalkboard" style="font-size: 48px; margin-bottom: 16px;"></i>
+                    <h3 style="margin-bottom: 8px; color: #1e293b;">No classes yet</h3>
+                    <p>Create your first class to get started</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = `
+            <div class="classes-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 24px;">
+                ${snapshot.docs.map(doc => {
+                    const classData = doc.data();
+                    return `
+                        <div class="class-card" style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; transition: all 0.2s ease;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                                <div>
+                                    <h3 style="margin: 0 0 8px 0; color: #1e293b; font-size: 18px;">${classData.name}</h3>
+                                    <p style="margin: 0 0 8px 0; color: #667eea; font-weight: 600;">${Array.isArray(classData.subjects) ? classData.subjects.join(', ') : classData.subject || 'No subjects'}</p>
+                                    <p style="margin: 0; color: #64748b; font-size: 14px;">${classData.description || 'No description'}</p>
+                                </div>
+                                <span style="background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: 500;">
+                                    ${classData.isActive ? 'Active' : 'Inactive'}
+                                </span>
+                            </div>
+                            <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: 600; color: #1e293b;">Class Code:</span>
+                                    <code style="background: #667eea; color: white; padding: 4px 8px; border-radius: 4px; font-weight: 600;">${classData.classCode}</code>
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                <span style="color: #64748b; font-size: 14px;"><i class="fas fa-users"></i> ${classData.studentCount || 0} students</span>
+                                <span style="color: #64748b; font-size: 14px;"><i class="fas fa-calendar"></i> ${classData.createdAt ? classData.createdAt.toDate().toLocaleDateString() : 'Unknown'}</span>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-primary btn-sm" onclick="viewClassDetails('${doc.id}')">
+                                    <i class="fas fa-eye"></i> View
+                                </button>
+                                <button class="btn btn-outline btn-sm" onclick="editClass('${doc.id}')">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteClass('${doc.id}')">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+        
+    } catch (error) {
+        container.innerHTML = '<p style="color: #ef4444;">Error loading classes. Please refresh.</p>';
+    }
+}
+
+function showCreateClass() {
+    hideAllSections();
+    updateActiveNav('Create Class');
+    
+    let createView = document.getElementById('createClassView');
+    if (!createView) {
+        createView = document.createElement('div');
+        createView.id = 'createClassView';
+        createView.className = 'dashboard-section';
+        createView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-plus-circle"></i> Create New Class</h2>
+                <button class="btn btn-outline" onclick="showClassManagement()"><i class="fas fa-arrow-left"></i> Back to Classes</button>
+            </div>
+            <div class="section-content">
+                <form id="createClassForm" style="max-width: 600px;">
+                    <div class="form-group">
+                        <label>Class Name</label>
+                        <input type="text" id="className" placeholder="e.g., Mathematics Grade 10" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Subjects</label>
+                        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="showSelectSubjectsModal()">
+                                <i class="fas fa-list"></i> Select Subjects
+                            </button>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="showAddSubjectModal()">
+                                <i class="fas fa-plus"></i> Add New
+                            </button>
+                        </div>
+                        <div id="selectedSubjects" style="min-height: 40px; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px; background: #f9fafb;">
+                            <span style="color: #64748b;">No subjects selected</span>
+                        </div>
+                        <input type="hidden" id="classSubjects" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description (Optional)</label>
+                        <textarea id="classDescription" rows="3" placeholder="Brief description of the class"></textarea>
+                    </div>
+                    <div style="display: flex; gap: 12px; margin-top: 24px;">
+                        <button type="button" class="btn btn-outline" onclick="showClassManagement()">Cancel</button>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Create Class</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(createView);
+    }
+    
+    createView.style.display = 'block';
+    loadSubjects('classSubject');
+}
+
+function generateClassCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+// Create class form handler
+document.addEventListener('submit', async (e) => {
+    if (e.target.id === 'createClassForm') {
+        e.preventDefault();
+        
+        const name = document.getElementById('className').value;
+        const subjects = document.getElementById('classSubjects').value.split(',').filter(s => s.trim());
+        const description = document.getElementById('classDescription').value;
+        
+        if (subjects.length === 0) {
+            showNotification('Please select at least one subject', 'error');
+            return;
+        }
+        
+        try {
+            const classCode = generateClassCode();
+            
+            await db.collection('classes').add({
+                name,
+                subjects,
+                description,
+                classCode,
+                teacherId: currentUser.uid,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                studentCount: 0,
+                isActive: true
+            });
+            
+            showNotification('Class created successfully!');
+            showClassManagement();
+            
+        } catch (error) {
+            showNotification('Error creating class: ' + error.message, 'error');
+        }
+    }
+    
+    if (e.target.id === 'editClassForm') {
+        e.preventDefault();
+        
+        const classId = document.getElementById('editClassId').value;
+        const name = document.getElementById('editClassName').value;
+        const subjects = document.getElementById('editClassSubjects').value.split(',').filter(s => s.trim());
+        const description = document.getElementById('editClassDescription').value;
+        const isActive = document.getElementById('editClassStatus').value === 'true';
+        
+        if (subjects.length === 0) {
+            showNotification('Please select at least one subject', 'error');
+            return;
+        }
+        
+        try {
+            await db.collection('classes').doc(classId).update({
+                name,
+                subjects,
+                description,
+                isActive,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            showNotification('Class updated successfully!');
+            showClassManagement();
+            
+        } catch (error) {
+            showNotification('Error updating class: ' + error.message, 'error');
+        }
+    }
+});
+
+function viewClassDetails(classId) {
+    hideAllSections();
+    updateActiveNav('Class Details');
+    
+    let detailView = document.getElementById('classDetailView');
+    if (!detailView) {
+        detailView = document.createElement('div');
+        detailView.id = 'classDetailView';
+        detailView.className = 'dashboard-section';
+        detailView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-chalkboard"></i> Class Details</h2>
+                <button class="btn btn-outline" onclick="showClassManagement()"><i class="fas fa-arrow-left"></i> Back to Classes</button>
+            </div>
+            <div class="section-content">
+                <div id="classDetailContainer">Loading class details...</div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(detailView);
+    }
+    
+    detailView.style.display = 'block';
+    loadClassDetails(classId);
+}
+
+function editClass(classId) {
+    hideAllSections();
+    updateActiveNav('Edit Class');
+    
+    let editView = document.getElementById('editClassView');
+    if (!editView) {
+        editView = document.createElement('div');
+        editView.id = 'editClassView';
+        editView.className = 'dashboard-section';
+        editView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-edit"></i> Edit Class</h2>
+                <button class="btn btn-outline" onclick="showClassManagement()"><i class="fas fa-arrow-left"></i> Back to Classes</button>
+            </div>
+            <div class="section-content">
+                <div id="editClassContainer">Loading class data...</div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(editView);
+    }
+    
+    editView.style.display = 'block';
+    loadClassForEdit(classId);
+}
+
+async function loadClassForEdit(classId) {
+    const container = document.getElementById('editClassContainer');
+    
+    try {
+        const classDoc = await db.collection('classes').doc(classId).get();
+        if (!classDoc.exists) {
+            container.innerHTML = '<p style="color: #ef4444;">Class not found.</p>';
+            return;
+        }
+        
+        const classData = classDoc.data();
+        const currentSubjects = Array.isArray(classData.subjects) ? classData.subjects : (classData.subject ? [classData.subject] : []);
+        
+        container.innerHTML = `
+            <form id="editClassForm" style="max-width: 600px;">
+                <input type="hidden" id="editClassId" value="${classId}">
+                <div class="form-group">
+                    <label>Class Name</label>
+                    <input type="text" id="editClassName" value="${classData.name}" required>
+                </div>
+                <div class="form-group">
+                    <label>Subjects</label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="showEditSelectSubjectsModal()">
+                            <i class="fas fa-list"></i> Select Subjects
+                        </button>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="showAddSubjectModal()">
+                            <i class="fas fa-plus"></i> Add New
+                        </button>
+                    </div>
+                    <div id="editSelectedSubjects" style="min-height: 40px; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px; background: #f9fafb;">
+                        ${currentSubjects.length > 0 ? 
+                            currentSubjects.map(s => `<span style="background: #667eea; color: white; padding: 4px 8px; border-radius: 4px; margin: 2px; display: inline-block;">${s}</span>`).join('') :
+                            '<span style="color: #64748b;">No subjects selected</span>'
+                        }
+                    </div>
+                    <input type="hidden" id="editClassSubjects" value="${currentSubjects.join(',')}" required>
+                </div>
+                <div class="form-group">
+                    <label>Description (Optional)</label>
+                    <textarea id="editClassDescription" rows="3">${classData.description || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="editClassStatus">
+                        <option value="true" ${classData.isActive ? 'selected' : ''}>Active</option>
+                        <option value="false" ${!classData.isActive ? 'selected' : ''}>Inactive</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <button type="button" class="btn btn-outline" onclick="showClassManagement()">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Update Class</button>
+                </div>
+            </form>
+        `;
+        
+    } catch (error) {
+        container.innerHTML = '<p style="color: #ef4444;">Error loading class data. Please refresh.</p>';
+    }
+}
+
+async function loadClassDetails(classId) {
+    const container = document.getElementById('classDetailContainer');
+    
+    try {
+        const classDoc = await db.collection('classes').doc(classId).get();
+        if (!classDoc.exists) {
+            container.innerHTML = '<p style="color: #ef4444;">Class not found.</p>';
+            return;
+        }
+        
+        const classData = classDoc.data();
+        
+        // Get students in this class
+        const usersSnapshot = await db.collection('users')
+            .where('classes', 'array-contains', classId)
+            .where('role', '==', 'student')
+            .get();
+        
+        const students = usersSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        
+        // Get class-specific exams
+        const examsSnapshot = await db.collection('exams')
+            .where('createdBy', '==', currentUser.uid)
+            .where('assignedClasses', 'array-contains', classId)
+            .get();
+        
+        container.innerHTML = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+                <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                    <h3 style="margin: 0 0 16px 0; color: #1e293b;"><i class="fas fa-info-circle"></i> Class Information</h3>
+                    <div style="display: grid; gap: 12px;">
+                        <div><strong>Name:</strong> ${classData.name}</div>
+                        <div><strong>Subject:</strong> ${classData.subject}</div>
+                        <div><strong>Description:</strong> ${classData.description || 'No description'}</div>
+                        <div><strong>Class Code:</strong> <code style="background: #667eea; color: white; padding: 4px 8px; border-radius: 4px;">${classData.classCode}</code></div>
+                        <div><strong>Created:</strong> ${classData.createdAt ? classData.createdAt.toDate().toLocaleDateString() : 'Unknown'}</div>
+                        <div><strong>Status:</strong> <span style="color: ${classData.isActive ? '#16a34a' : '#ef4444'};">${classData.isActive ? 'Active' : 'Inactive'}</span></div>
+                    </div>
+                </div>
+                <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                    <h3 style="margin: 0 0 16px 0; color: #1e293b;"><i class="fas fa-chart-bar"></i> Class Statistics</h3>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                        <div style="text-align: center; padding: 16px; background: #f8fafc; border-radius: 8px;">
+                            <div style="font-size: 24px; font-weight: 700; color: #3b82f6;">${students.length}</div>
+                            <div style="color: #64748b; font-size: 14px;">Students</div>
+                        </div>
+                        <div style="text-align: center; padding: 16px; background: #f8fafc; border-radius: 8px;">
+                            <div style="font-size: 24px; font-weight: 700; color: #16a34a;">${examsSnapshot.size}</div>
+                            <div style="color: #64748b; font-size: 14px;">Assigned Exams</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 24px;">
+                <div style="padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; color: #1e293b;"><i class="fas fa-users"></i> Students (${students.length})</h3>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-primary btn-sm" onclick="showAddStudentsModal('${classId}')">
+                            <i class="fas fa-user-plus"></i> Add Students
+                        </button>
+                        <button class="btn btn-outline btn-sm" onclick="removeAllStudents('${classId}')">
+                            <i class="fas fa-user-minus"></i> Remove All
+                        </button>
+                    </div>
+                </div>
+                <div style="padding: 24px;">
+                    ${students.length === 0 ? 
+                        '<div style="text-align: center; padding: 40px; color: #64748b;"><i class="fas fa-users" style="font-size: 48px; margin-bottom: 16px;"></i><h4>No students yet</h4><p>Students will appear here when they join using the class code</p></div>' :
+                        `<div style="display: grid; gap: 12px;">
+                            ${students.map(student => `
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; border: 1px solid #f1f5f9; border-radius: 8px;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">
+                                            ${student.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: 500; color: #1e293b;">${student.name}</div>
+                                            <div style="color: #64748b; font-size: 14px;">${student.email}</div>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-danger btn-sm" onclick="removeStudentFromClass('${classId}', '${student.id}')">
+                                        <i class="fas fa-user-minus"></i> Remove
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>`
+                    }
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        container.innerHTML = '<p style="color: #ef4444;">Error loading class details. Please refresh.</p>';
+    }
+}
+
+async function removeStudentFromClass(classId, studentId) {
+    if (confirm('Are you sure you want to remove this student from the class?')) {
+        try {
+            await db.collection('users').doc(studentId).update({
+                classes: firebase.firestore.FieldValue.arrayRemove(classId)
+            });
+            
+            await db.collection('classes').doc(classId).update({
+                studentCount: firebase.firestore.FieldValue.increment(-1)
+            });
+            
+            showNotification('Student removed from class successfully!');
+            loadClassDetails(classId);
+            
+        } catch (error) {
+            showNotification('Error removing student: ' + error.message, 'error');
+        }
+    }
+}
+
+function removeAllStudents(classId) {
+    createModal(
+        'removeAllModal',
+        'Remove All Students',
+        'Are you sure you want to remove ALL students from this class? This action cannot be undone.',
+        `<button class="btn btn-outline" onclick="hideModal('removeAllModal')">Cancel</button>
+         <button class="btn btn-danger" onclick="confirmRemoveAllStudents('${classId}')">Remove All</button>`,
+        { danger: true, icon: 'fas fa-exclamation-triangle' }
+    );
+}
+
+async function confirmRemoveAllStudents(classId) {
+    try {
+        const usersSnapshot = await db.collection('users')
+            .where('classes', 'array-contains', classId)
+            .get();
+        
+        const batch = db.batch();
+        usersSnapshot.docs.forEach(doc => {
+            batch.update(doc.ref, {
+                classes: firebase.firestore.FieldValue.arrayRemove(classId)
+            });
+        });
+        
+        batch.update(db.collection('classes').doc(classId), {
+            studentCount: 0
+        });
+        
+        await batch.commit();
+        
+        showNotification('All students removed from class successfully!');
+        hideModal('removeAllModal');
+        loadClassDetails(classId);
+        
+    } catch (error) {
+        showNotification('Error removing students: ' + error.message, 'error');
+    }
+}
+
+function deleteClass(classId) {
+    createModal(
+        'deleteClassModal',
+        'Delete Class',
+        'Are you sure you want to delete this class? This will remove all students from the class.',
+        `<button class="btn btn-outline" onclick="hideModal('deleteClassModal')">Cancel</button>
+         <button class="btn btn-danger" onclick="confirmDeleteClass('${classId}')">Delete Class</button>`,
+        { danger: true, icon: 'fas fa-trash' }
+    );
+}
+
+function confirmDeleteClass(classId) {
+    db.collection('classes').doc(classId).delete()
+        .then(() => {
+            showNotification('Class deleted successfully!');
+            hideModal('deleteClassModal');
+            loadClasses();
+        })
+        .catch(error => {
+            showNotification('Error deleting class: ' + error.message, 'error');
+        });
+}
+
+// Subject Management Functions
+async function loadSubjects(selectId, selectedValue = '') {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    
+    try {
+        const snapshot = await db.collection('subjects').orderBy('name').get();
+        let options = '<option value="">Select Subject</option>';
+        
+        snapshot.docs.forEach(doc => {
+            const subject = doc.data().name;
+            const selected = subject === selectedValue ? 'selected' : '';
+            options += `<option value="${subject}" ${selected}>${subject}</option>`;
+        });
+        
+        select.innerHTML = options;
+    } catch (error) {
+        // Fallback to default subjects if collection doesn't exist
+        const defaultSubjects = ['Mathematics', 'Science', 'English', 'History', 'Geography', 'Computer Science', 'Physics', 'Chemistry', 'Biology'];
+        let options = '<option value="">Select Subject</option>';
+        
+        defaultSubjects.forEach(subject => {
+            const selected = subject === selectedValue ? 'selected' : '';
+            options += `<option value="${subject}" ${selected}>${subject}</option>`;
+        });
+        
+        select.innerHTML = options;
+    }
+}
+
+function showAddSubjectModal() {
+    createModal(
+        'addSubjectModal',
+        'Add New Subject',
+        '<input type="text" id="newSubjectName" placeholder="Enter subject name" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">',
+        `<button class="btn btn-outline" onclick="hideModal('addSubjectModal')">Cancel</button>
+         <button class="btn btn-primary" onclick="addNewSubject()">Add Subject</button>`
+    );
+    setTimeout(() => document.getElementById('newSubjectName').focus(), 100);
+}
+
+async function addNewSubject() {
+    const name = document.getElementById('newSubjectName').value.trim();
+    if (!name) {
+        showNotification('Please enter a subject name', 'error');
+        return;
+    }
+    
+    try {
+        await db.collection('subjects').add({ name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        showNotification('Subject added successfully!');
+        hideModal('addSubjectModal');
+        
+        // Reload subjects in all dropdowns
+        loadSubjects('classSubject', name);
+        loadSubjects('editClassSubject');
+        loadSubjects('examSubject');
+    } catch (error) {
+        showNotification('Error adding subject: ' + error.message, 'error');
+    }
+}
+
+async function showSelectSubjectsModal() {
+    try {
+        const snapshot = await db.collection('subjects').orderBy('name').get();
+        const subjects = snapshot.docs.map(doc => doc.data().name);
+        
+        const modal = document.createElement('div');
+        modal.id = 'selectSubjectsModal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;';
+        
+        modal.innerHTML = `
+            <div style="background: white; padding: 24px; border-radius: 12px; width: 500px; max-width: 90vw; max-height: 80vh; overflow-y: auto;">
+                <h3 style="margin: 0 0 16px 0;">Select Subjects</h3>
+                <div style="margin-bottom: 16px; display: flex; gap: 8px;">
+                    <button class="btn btn-outline btn-sm" onclick="selectAllSubjects()">Select All</button>
+                    <button class="btn btn-outline btn-sm" onclick="deselectAllSubjects()">Deselect All</button>
+                </div>
+                <div id="subjectsList" style="max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
+                    ${subjects.length === 0 ? 
+                        '<p style="text-align: center; color: #64748b;">No subjects available</p>' :
+                        subjects.map(subject => `
+                            <div style="display: flex; align-items: center; gap: 12px; padding: 8px; border-bottom: 1px solid #f1f5f9;">
+                                <input type="checkbox" id="subject_${subject}" value="${subject}" class="subject-checkbox">
+                                <label for="subject_${subject}" style="flex: 1; cursor: pointer; font-weight: 500;">${subject}</label>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+                <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+                    <button class="btn btn-outline" onclick="hideSelectSubjectsModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="applySelectedSubjects()">Apply Selection</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+    } catch (error) {
+        showNotification('Error loading subjects: ' + error.message, 'error');
+    }
+}
+
+function hideSelectSubjectsModal() {
+    const modal = document.getElementById('selectSubjectsModal');
+    if (modal) modal.remove();
+}
+
+function selectAllSubjects() {
+    document.querySelectorAll('.subject-checkbox').forEach(cb => cb.checked = true);
+}
+
+function deselectAllSubjects() {
+    document.querySelectorAll('.subject-checkbox').forEach(cb => cb.checked = false);
+}
+
+function applySelectedSubjects() {
+    const selected = Array.from(document.querySelectorAll('.subject-checkbox:checked')).map(cb => cb.value);
+    
+    if (selected.length === 0) {
+        showNotification('Please select at least one subject', 'error');
+        return;
+    }
+    
+    document.getElementById('classSubjects').value = selected.join(',');
+    document.getElementById('selectedSubjects').innerHTML = selected.map(s => 
+        `<span style="background: #667eea; color: white; padding: 4px 8px; border-radius: 4px; margin: 2px; display: inline-block;">${s}</span>`
+    ).join('');
+    
+    hideSelectSubjectsModal();
+}
+
+async function showEditSelectSubjectsModal() {
+    try {
+        const snapshot = await db.collection('subjects').orderBy('name').get();
+        const subjects = snapshot.docs.map(doc => doc.data().name);
+        const currentSubjects = document.getElementById('editClassSubjects').value.split(',').filter(s => s.trim());
+        
+        const modal = document.createElement('div');
+        modal.id = 'selectSubjectsModal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;';
+        
+        modal.innerHTML = `
+            <div style="background: white; padding: 24px; border-radius: 12px; width: 500px; max-width: 90vw; max-height: 80vh; overflow-y: auto;">
+                <h3 style="margin: 0 0 16px 0;">Select Subjects</h3>
+                <div style="margin-bottom: 16px; display: flex; gap: 8px;">
+                    <button class="btn btn-outline btn-sm" onclick="selectAllSubjects()">Select All</button>
+                    <button class="btn btn-outline btn-sm" onclick="deselectAllSubjects()">Deselect All</button>
+                </div>
+                <div id="subjectsList" style="max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
+                    ${subjects.map(subject => `
+                        <div style="display: flex; align-items: center; gap: 12px; padding: 8px; border-bottom: 1px solid #f1f5f9;">
+                            <input type="checkbox" id="subject_${subject}" value="${subject}" class="subject-checkbox" ${currentSubjects.includes(subject) ? 'checked' : ''}>
+                            <label for="subject_${subject}" style="flex: 1; cursor: pointer; font-weight: 500;">${subject}</label>
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+                    <button class="btn btn-outline" onclick="hideSelectSubjectsModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="applyEditSelectedSubjects()">Apply Selection</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+    } catch (error) {
+        showNotification('Error loading subjects: ' + error.message, 'error');
+    }
+}
+
+function applyEditSelectedSubjects() {
+    const selected = Array.from(document.querySelectorAll('.subject-checkbox:checked')).map(cb => cb.value);
+    
+    if (selected.length === 0) {
+        showNotification('Please select at least one subject', 'error');
+        return;
+    }
+    
+    document.getElementById('editClassSubjects').value = selected.join(',');
+    document.getElementById('editSelectedSubjects').innerHTML = selected.map(s => 
+        `<span style="background: #667eea; color: white; padding: 4px 8px; border-radius: 4px; margin: 2px; display: inline-block;">${s}</span>`
+    ).join('');
+    
+    hideSelectSubjectsModal();
+}
+
+function showClassManagement() {
+    hideAllSections();
+    updateActiveNav('My Classes');
+    
+    let classView = document.getElementById('classManagementView');
+    if (!classView) {
+        classView = document.createElement('div');
+        classView.id = 'classManagementView';
+        classView.className = 'dashboard-section';
+        classView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-chalkboard"></i> Class Management</h2>
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn btn-primary" onclick="showCreateClass()"><i class="fas fa-plus"></i> Create Class</button>
+                    <button class="btn btn-outline" onclick="showDashboard()"><i class="fas fa-arrow-left"></i> Back to Dashboard</button>
+                </div>
+            </div>
+            <div class="section-content">
+                <div id="classesContainer">Loading classes...</div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(classView);
+    }
+    
+    classView.style.display = 'block';
+    loadClasses();
+}
+
+// Load subjects for exam creation
+async function loadExamSubjects() {
+    loadSubjects('examSubject');
+}
+
+async function showAddStudentsModal(classId) {
+    try {
+        const allStudents = await db.collection('users').where('role', '==', 'student').get();
+        const classStudents = await db.collection('users')
+            .where('classes', 'array-contains', classId)
+            .where('role', '==', 'student')
+            .get();
+        
+        const classStudentIds = new Set(classStudents.docs.map(doc => doc.id));
+        const availableStudents = allStudents.docs
+            .filter(doc => !classStudentIds.has(doc.id))
+            .map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        const content = `
+            <div style="margin-bottom: 16px; display: flex; gap: 8px;">
+                <button class="btn btn-outline btn-sm" onclick="selectAllStudents()">Select All</button>
+                <button class="btn btn-outline btn-sm" onclick="deselectAllStudents()">Deselect All</button>
+            </div>
+            <div id="studentsList" style="max-height: 400px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
+                ${availableStudents.length === 0 ? 
+                    '<p style="text-align: center; color: #64748b;">No available students to add</p>' :
+                    availableStudents.map(student => `
+                        <div style="display: flex; align-items: center; gap: 12px; padding: 8px; border-bottom: 1px solid #f1f5f9;">
+                            <input type="checkbox" id="student_${student.id}" value="${student.id}" class="student-checkbox">
+                            <label for="student_${student.id}" style="flex: 1; cursor: pointer;">
+                                <div style="font-weight: 500;">${student.name}</div>
+                                <div style="color: #64748b; font-size: 14px;">${student.email}</div>
+                            </label>
+                        </div>
+                    `).join('')
+                }
+            </div>
+        `;
+        
+        createModal(
+            'addStudentsModal',
+            'Add Students to Class',
+            content,
+            `<button class="btn btn-outline" onclick="hideModal('addStudentsModal')">Cancel</button>
+             <button class="btn btn-primary" onclick="addSelectedStudents('${classId}')">Add Selected</button>`,
+            { width: '600px' }
+        );
+        
+    } catch (error) {
+        showNotification('Error loading students: ' + error.message, 'error');
+    }
+}
+
+
+
+function selectAllStudents() {
+    document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = true);
+}
+
+function deselectAllStudents() {
+    document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = false);
+}
+
+async function addSelectedStudents(classId) {
+    const selectedIds = Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => cb.value);
+    
+    if (selectedIds.length === 0) {
+        showNotification('Please select at least one student', 'error');
+        return;
+    }
+    
+    try {
+        const batch = db.batch();
+        
+        selectedIds.forEach(studentId => {
+            batch.update(db.collection('users').doc(studentId), {
+                classes: firebase.firestore.FieldValue.arrayUnion(classId)
+            });
+        });
+        
+        batch.update(db.collection('classes').doc(classId), {
+            studentCount: firebase.firestore.FieldValue.increment(selectedIds.length)
+        });
+        
+        await batch.commit();
+        
+        showNotification(`${selectedIds.length} student(s) added successfully!`);
+        hideModal('addStudentsModal');
+        loadClassDetails(classId);
+        
+    } catch (error) {
+        showNotification('Error adding students: ' + error.message, 'error');
+    }
 }
 
 // Close sidebar when clicking nav links on mobile
@@ -3472,8 +4370,14 @@ async function gradeSubmission(examId, studentId) {
         
         gradingHTML += '</div>';
         
-        document.getElementById('gradingContent').innerHTML = gradingHTML;
-        document.getElementById('gradingModal').classList.remove('hidden');
+        createModal(
+            'gradingModal',
+            'Grade Submission',
+            gradingHTML,
+            `<button class="btn btn-outline" onclick="hideGradingModal()">Cancel</button>
+             <button class="btn btn-primary" onclick="saveGrades()">Save Grades</button>`,
+            { width: '700px', icon: 'fas fa-edit' }
+        );
         
         // Store current grading context
         window.currentGradingExam = examId;
@@ -3485,7 +4389,7 @@ async function gradeSubmission(examId, studentId) {
 }
 
 function hideGradingModal() {
-    document.getElementById('gradingModal').classList.add('hidden');
+    hideModal('gradingModal');
 }
 
 async function saveGrades() {
@@ -3685,7 +4589,7 @@ async function manageStudentExam(examId, studentId) {
         
         const status = studentExamDoc.exists ? studentExamDoc.data() : { active: true };
         
-        document.getElementById('studentExamContent').innerHTML = `
+        const content = `
             <div class="student-exam-info">
                 <h4>${userData?.name || 'Unknown'}</h4>
                 <p><strong>Email:</strong> ${userData?.email || 'Unknown'}</p>
@@ -3721,7 +4625,13 @@ async function manageStudentExam(examId, studentId) {
             </div>
         `;
         
-        document.getElementById('studentExamModal').classList.remove('hidden');
+        createModal(
+            'studentExamModal',
+            'Manage Student Exam',
+            content,
+            '<button class="btn btn-outline" onclick="hideStudentExamModal()">Close</button>',
+            { width: '500px', icon: 'fas fa-cog' }
+        );
         
     } catch (error) {
         showNotification('Error loading student exam data: ' + error.message, 'error');
@@ -3729,7 +4639,7 @@ async function manageStudentExam(examId, studentId) {
 }
 
 function hideStudentExamModal() {
-    document.getElementById('studentExamModal').classList.add('hidden');
+    hideModal('studentExamModal');
 }
 
 async function deactivateStudentExam(examId, studentId) {
@@ -4513,6 +5423,33 @@ function showVerificationCenter() {
     verificationView.style.display = 'block';
 }
 
+function showClassManagement() {
+    hideAllSections();
+    updateActiveNav('My Classes');
+    
+    let classView = document.getElementById('classManagementView');
+    if (!classView) {
+        classView = document.createElement('div');
+        classView.id = 'classManagementView';
+        classView.className = 'dashboard-section';
+        classView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-chalkboard"></i> My Classes</h2>
+                <button class="btn btn-primary" onclick="showCreateClass()">
+                    <i class="fas fa-plus"></i> Create Class
+                </button>
+            </div>
+            <div class="section-content">
+                <div id="classesContainer">Loading classes...</div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(classView);
+    }
+    
+    classView.style.display = 'block';
+    loadClasses();
+}
+
 function showTeacherManagement() {
     hideAllSections();
     updateActiveNav('Manage Teachers');
@@ -5005,3 +5942,650 @@ document.addEventListener('click', (e) => {
         hideStudentExamModal();
     }
 });
+
+function showClassManagement() {
+    hideAllSections();
+    updateActiveNav('My Classes');
+    
+    let classView = document.getElementById('classManagementView');
+    if (!classView) {
+        classView = document.createElement('div');
+        classView.id = 'classManagementView';
+        classView.className = 'dashboard-section';
+        classView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-chalkboard"></i> Class Management</h2>
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn btn-outline" onclick="showClassAnalytics()">
+                        <i class="fas fa-chart-bar"></i> Analytics
+                    </button>
+                    <button class="btn btn-primary" onclick="showCreateClass()">
+                        <i class="fas fa-plus"></i> Create Class
+                    </button>
+                </div>
+            </div>
+            <div class="section-content">
+                <div id="classesContainer">Loading classes...</div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(classView);
+    }
+    
+    classView.style.display = 'block';
+    loadClasses();
+}
+
+function showClassAnalytics() {
+    hideAllSections();
+    updateActiveNav('Class Analytics');
+    
+    let analyticsView = document.getElementById('classAnalyticsView');
+    if (!analyticsView) {
+        analyticsView = document.createElement('div');
+        analyticsView.id = 'classAnalyticsView';
+        analyticsView.className = 'dashboard-section';
+        analyticsView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-chart-bar"></i> Class Analytics & Performance</h2>
+                <button class="btn btn-outline" onclick="showClassManagement()"><i class="fas fa-arrow-left"></i> Back to Classes</button>
+            </div>
+            <div class="section-content">
+                <div class="filter-controls" style="margin-bottom: 24px;">
+                    <div class="filter-group">
+                        <label class="filter-label">Select Class</label>
+                        <select id="analyticsClassFilter" class="filter-select" onchange="loadClassAnalytics()">
+                            <option value="">All Classes</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Time Period</label>
+                        <select id="analyticsTimeFilter" class="filter-select" onchange="loadClassAnalytics()">
+                            <option value="all">All Time</option>
+                            <option value="30">Last 30 Days</option>
+                            <option value="7">Last 7 Days</option>
+                        </select>
+                    </div>
+                    <div class="filter-actions">
+                        <button class="btn btn-outline btn-sm" onclick="refreshClassAnalytics()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                        <button class="btn btn-primary btn-sm" onclick="exportClassAnalytics()"><i class="fas fa-download"></i> Export</button>
+                    </div>
+                </div>
+                <div id="classAnalyticsContainer">Loading analytics...</div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(analyticsView);
+    }
+    
+    analyticsView.style.display = 'block';
+    loadClassAnalyticsData();
+}
+
+async function loadClassAnalyticsData() {
+    const classFilter = document.getElementById('analyticsClassFilter');
+    
+    try {
+        const classSnapshot = await db.collection('classes')
+            .where('teacherId', '==', currentUser.uid)
+            .where('isActive', '==', true)
+            .get();
+        
+        if (classFilter) {
+            const currentValue = classFilter.value;
+            classFilter.innerHTML = '<option value="">All Classes</option>';
+            classSnapshot.docs.forEach(doc => {
+                const classData = doc.data();
+                classFilter.innerHTML += `<option value="${doc.id}">${classData.name} - ${classData.subject}</option>`;
+            });
+            classFilter.value = currentValue;
+        }
+        
+        loadClassAnalytics();
+    } catch (error) {
+        document.getElementById('classAnalyticsContainer').innerHTML = '<p style="color: #ef4444;">Error loading analytics. Please refresh.</p>';
+    }
+}
+
+async function loadClassAnalytics() {
+    const container = document.getElementById('classAnalyticsContainer');
+    const selectedClassId = document.getElementById('analyticsClassFilter')?.value || '';
+    const timePeriod = document.getElementById('analyticsTimeFilter')?.value || 'all';
+    
+    try {
+        container.innerHTML = '<div style="text-align: center; padding: 40px;">Loading analytics...</div>';
+        
+        let dateFilter = null;
+        if (timePeriod !== 'all') {
+            const days = parseInt(timePeriod);
+            dateFilter = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+        }
+        
+        let classesToAnalyze = [];
+        if (selectedClassId) {
+            const classDoc = await db.collection('classes').doc(selectedClassId).get();
+            if (classDoc.exists) {
+                classesToAnalyze = [{ id: selectedClassId, data: classDoc.data() }];
+            }
+        } else {
+            const classSnapshot = await db.collection('classes')
+                .where('teacherId', '==', currentUser.uid)
+                .where('isActive', '==', true)
+                .get();
+            classesToAnalyze = classSnapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+        }
+        
+        if (classesToAnalyze.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #64748b;">
+                    <i class="fas fa-chart-bar" style="font-size: 48px; margin-bottom: 16px;"></i>
+                    <h3>No classes found</h3>
+                    <p>Create classes to see analytics</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const classAnalytics = [];
+        for (const classItem of classesToAnalyze) {
+            const analytics = await analyzeClassPerformance(classItem.id, classItem.data, dateFilter);
+            classAnalytics.push(analytics);
+        }
+        
+        displayClassAnalytics(classAnalytics, selectedClassId);
+        
+    } catch (error) {
+        container.innerHTML = '<p style="color: #ef4444;">Error loading analytics. Please refresh.</p>';
+    }
+}
+async function analyzeClassPerformance(classId, classData, dateFilter) {
+    try {
+        const studentsSnapshot = await db.collection('users')
+            .where('classes', 'array-contains', classId)
+            .where('role', '==', 'student')
+            .get();
+        
+        const students = studentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        let examsQuery = db.collection('exams')
+            .where('createdBy', '==', currentUser.uid)
+            .where('assignedClasses', 'array-contains', classId);
+        
+        const examsSnapshot = await examsQuery.get();
+        const exams = examsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        const submissions = [];
+        let totalScore = 0;
+        let totalMaxScore = 0;
+        let submissionCount = 0;
+        const studentPerformance = new Map();
+        
+        for (const exam of exams) {
+            const submissionSnapshot = await db.collection('submissions')
+                .doc(exam.id).collection('students').get();
+            
+            for (const submissionDoc of submissionSnapshot.docs) {
+                const submission = submissionDoc.data();
+                
+                if (dateFilter && submission.submittedAt) {
+                    if (submission.submittedAt.toDate() < dateFilter) continue;
+                }
+                
+                if (!students.find(s => s.id === submissionDoc.id)) continue;
+                
+                const score = await calculateInlineScore(exam.id, submission.answers);
+                const percentage = score.total > 0 ? (score.scored / score.total) * 100 : 0;
+                
+                totalScore += score.scored;
+                totalMaxScore += score.total;
+                submissionCount++;
+                
+                if (!studentPerformance.has(submissionDoc.id)) {
+                    const student = students.find(s => s.id === submissionDoc.id);
+                    studentPerformance.set(submissionDoc.id, {
+                        name: student?.name || 'Unknown',
+                        email: student?.email || 'Unknown',
+                        scores: [],
+                        totalScore: 0,
+                        totalMax: 0,
+                        examCount: 0
+                    });
+                }
+                
+                const studentData = studentPerformance.get(submissionDoc.id);
+                studentData.scores.push(percentage);
+                studentData.totalScore += score.scored;
+                studentData.totalMax += score.total;
+                studentData.examCount++;
+                
+                submissions.push({
+                    studentId: submissionDoc.id,
+                    examId: exam.id,
+                    examTitle: exam.title,
+                    score: score.scored,
+                    total: score.total,
+                    percentage,
+                    submittedAt: submission.submittedAt ? submission.submittedAt.toDate() : null
+                });
+            }
+        }
+        
+        const classAverage = totalMaxScore > 0 ? (totalScore / totalMaxScore) * 100 : 0;
+        const studentStats = Array.from(studentPerformance.values()).map(student => ({
+            ...student,
+            average: student.totalMax > 0 ? (student.totalScore / student.totalMax) * 100 : 0
+        })).sort((a, b) => b.average - a.average);
+        
+        const topPerformers = studentStats.filter(s => s.average >= 90).length;
+        const highPerformers = studentStats.filter(s => s.average >= 70 && s.average < 90).length;
+        const averagePerformers = studentStats.filter(s => s.average >= 50 && s.average < 70).length;
+        const needsImprovement = studentStats.filter(s => s.average < 50).length;
+        
+        return {
+            classId,
+            className: classData.name,
+            classSubject: classData.subject,
+            studentCount: students.length,
+            activeStudents: studentStats.length,
+            examCount: exams.length,
+            submissionCount,
+            classAverage: classAverage.toFixed(1),
+            topPerformers,
+            highPerformers,
+            averagePerformers,
+            needsImprovement,
+            studentStats: studentStats.slice(0, 10),
+            recentSubmissions: submissions.sort((a, b) => (b.submittedAt || new Date(0)) - (a.submittedAt || new Date(0))).slice(0, 5)
+        };
+        
+    } catch (error) {
+        console.error('Error analyzing class performance:', error);
+        return {
+            classId,
+            className: classData.name,
+            classSubject: classData.subject,
+            error: error.message
+        };
+    }
+}
+function displayClassAnalytics(analyticsData, selectedClassId) {
+    const container = document.getElementById('classAnalyticsContainer');
+    
+    if (analyticsData.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #64748b;">
+                <i class="fas fa-chart-bar" style="font-size: 48px; margin-bottom: 16px;"></i>
+                <h3>No analytics data</h3>
+                <p>No class data available for the selected period</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    
+    if (!selectedClassId && analyticsData.length > 1) {
+        const totalStudents = analyticsData.reduce((sum, c) => sum + c.studentCount, 0);
+        const totalActiveStudents = analyticsData.reduce((sum, c) => sum + c.activeStudents, 0);
+        const totalExams = analyticsData.reduce((sum, c) => sum + c.examCount, 0);
+        const totalSubmissions = analyticsData.reduce((sum, c) => sum + c.submissionCount, 0);
+        const overallAverage = analyticsData.reduce((sum, c) => sum + parseFloat(c.classAverage), 0) / analyticsData.length;
+        
+        html += `
+            <div class="analytics-summary" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+                <h3 style="margin: 0 0 16px 0; font-size: 20px;">Overall Analytics Summary</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 28px; font-weight: 700;">${analyticsData.length}</div>
+                        <div style="opacity: 0.9;">Active Classes</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 28px; font-weight: 700;">${totalStudents}</div>
+                        <div style="opacity: 0.9;">Total Students</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 28px; font-weight: 700;">${totalExams}</div>
+                        <div style="opacity: 0.9;">Class Exams</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 28px; font-weight: 700;">${totalSubmissions}</div>
+                        <div style="opacity: 0.9;">Submissions</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 28px; font-weight: 700;">${overallAverage.toFixed(1)}%</div>
+                        <div style="opacity: 0.9;">Overall Average</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    analyticsData.forEach(analytics => {
+        if (analytics.error) {
+            html += `
+                <div class="class-analytics-card" style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+                    <h3 style="color: #ef4444;">${analytics.className} - Error</h3>
+                    <p style="color: #64748b;">${analytics.error}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        html += `
+            <div class="class-analytics-card" style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 24px; overflow: hidden;">
+                <div style="padding: 24px; border-bottom: 1px solid #f1f5f9;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <div>
+                            <h3 style="margin: 0 0 4px 0; color: #1e293b;">${analytics.className}</h3>
+                            <p style="margin: 0; color: #667eea; font-weight: 600;">${analytics.classSubject}</p>
+                        </div>
+                        <button class="btn btn-outline btn-sm" onclick="showClassExamAnalytics('${analytics.classId}')">
+                            <i class="fas fa-chart-line"></i> Exam Analytics
+                        </button>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                        <div style="text-align: center; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                            <div style="font-size: 20px; font-weight: 700; color: #3b82f6;">${analytics.studentCount}</div>
+                            <div style="color: #64748b; font-size: 12px;">Total Students</div>
+                        </div>
+                        <div style="text-align: center; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                            <div style="font-size: 20px; font-weight: 700; color: #10b981;">${analytics.activeStudents}</div>
+                            <div style="color: #64748b; font-size: 12px;">Active Students</div>
+                        </div>
+                        <div style="text-align: center; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                            <div style="font-size: 20px; font-weight: 700; color: #8b5cf6;">${analytics.examCount}</div>
+                            <div style="color: #64748b; font-size: 12px;">Assigned Exams</div>
+                        </div>
+                        <div style="text-align: center; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                            <div style="font-size: 20px; font-weight: 700; color: #f59e0b;">${analytics.submissionCount}</div>
+                            <div style="color: #64748b; font-size: 12px;">Submissions</div>
+                        </div>
+                        <div style="text-align: center; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                            <div style="font-size: 20px; font-weight: 700; color: ${parseFloat(analytics.classAverage) >= 70 ? '#16a34a' : parseFloat(analytics.classAverage) >= 50 ? '#d97706' : '#ef4444'};">${analytics.classAverage}%</div>
+                            <div style="color: #64748b; font-size: 12px;">Class Average</div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <h4 style="margin: 0 0 12px 0; color: #1e293b;">Performance Distribution</h4>
+                            <div style="display: grid; gap: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #dcfce7; border-radius: 6px;">
+                                    <span style="color: #166534; font-weight: 500;">Excellent (≥90%)</span>
+                                    <span style="color: #166534; font-weight: 600;">${analytics.topPerformers}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #dbeafe; border-radius: 6px;">
+                                    <span style="color: #1e40af; font-weight: 500;">Good (70-89%)</span>
+                                    <span style="color: #1e40af; font-weight: 600;">${analytics.highPerformers}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #fef3c7; border-radius: 6px;">
+                                    <span style="color: #92400e; font-weight: 500;">Average (50-69%)</span>
+                                    <span style="color: #92400e; font-weight: 600;">${analytics.averagePerformers}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #fee2e2; border-radius: 6px;">
+                                    <span style="color: #991b1b; font-weight: 500;">Needs Help (<50%)</span>
+                                    <span style="color: #991b1b; font-weight: 600;">${analytics.needsImprovement}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 style="margin: 0 0 12px 0; color: #1e293b;">Top Performers</h4>
+                            <div style="max-height: 200px; overflow-y: auto;">
+                                ${analytics.studentStats.length === 0 ? 
+                                    '<p style="color: #64748b; font-style: italic;">No student data available</p>' :
+                                    analytics.studentStats.map((student, index) => `
+                                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #f1f5f9;">
+                                            <div>
+                                                <div style="font-weight: 500; color: #1e293b;">#${index + 1} ${student.name}</div>
+                                                <div style="font-size: 12px; color: #64748b;">${student.examCount} exams</div>
+                                            </div>
+                                            <div style="text-align: right;">
+                                                <div style="font-weight: 600; color: ${student.average >= 90 ? '#16a34a' : student.average >= 70 ? '#2563eb' : student.average >= 50 ? '#d97706' : '#ef4444'};">${student.average.toFixed(1)}%</div>
+                                            </div>
+                                        </div>
+                                    `).join('')
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function refreshClassAnalytics() {
+    showNotification('Refreshing class analytics...', 'info');
+    loadClassAnalytics();
+}
+function showClassExamAnalytics(classId) {
+    hideAllSections();
+    updateActiveNav('Class Exam Analytics');
+    
+    let examAnalyticsView = document.getElementById('classExamAnalyticsView');
+    if (!examAnalyticsView) {
+        examAnalyticsView = document.createElement('div');
+        examAnalyticsView.id = 'classExamAnalyticsView';
+        examAnalyticsView.className = 'dashboard-section';
+        examAnalyticsView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-chart-line"></i> Class Exam Analytics</h2>
+                <button class="btn btn-outline" onclick="showClassAnalytics()"><i class="fas fa-arrow-left"></i> Back to Analytics</button>
+            </div>
+            <div class="section-content">
+                <div id="classExamAnalyticsContainer">Loading exam analytics...</div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(examAnalyticsView);
+    }
+    
+    examAnalyticsView.style.display = 'block';
+    loadClassExamAnalytics(classId);
+}
+
+async function loadClassExamAnalytics(classId) {
+    const container = document.getElementById('classExamAnalyticsContainer');
+    
+    try {
+        const classDoc = await db.collection('classes').doc(classId).get();
+        const classData = classDoc.data();
+        
+        const examsSnapshot = await db.collection('exams')
+            .where('createdBy', '==', currentUser.uid)
+            .where('assignedClasses', 'array-contains', classId)
+            .get();
+        
+        if (examsSnapshot.empty) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #64748b;">
+                    <i class="fas fa-clipboard-list" style="font-size: 48px; margin-bottom: 16px;"></i>
+                    <h3>No exams assigned to this class</h3>
+                    <p>Assign exams to this class to see analytics</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const examAnalytics = [];
+        for (const examDoc of examsSnapshot.docs) {
+            const exam = examDoc.data();
+            const analytics = await analyzeExamForClass(examDoc.id, exam, classId);
+            examAnalytics.push(analytics);
+        }
+        
+        displayClassExamAnalytics(classData, examAnalytics);
+        
+    } catch (error) {
+        container.innerHTML = '<p style="color: #ef4444;">Error loading exam analytics. Please refresh.</p>';
+    }
+}
+
+async function analyzeExamForClass(examId, examData, classId) {
+    try {
+        const studentsSnapshot = await db.collection('users')
+            .where('classes', 'array-contains', classId)
+            .where('role', '==', 'student')
+            .get();
+        
+        const classStudentIds = studentsSnapshot.docs.map(doc => doc.id);
+        
+        const submissionSnapshot = await db.collection('submissions')
+            .doc(examId).collection('students').get();
+        
+        const classSubmissions = [];
+        let totalScore = 0;
+        let totalMaxScore = 0;
+        
+        for (const submissionDoc of submissionSnapshot.docs) {
+            if (!classStudentIds.includes(submissionDoc.id)) continue;
+            
+            const submission = submissionDoc.data();
+            const score = await calculateInlineScore(examId, submission.answers);
+            const percentage = score.total > 0 ? (score.scored / score.total) * 100 : 0;
+            
+            totalScore += score.scored;
+            totalMaxScore += score.total;
+            
+            const studentDoc = await db.collection('users').doc(submissionDoc.id).get();
+            const studentData = studentDoc.data();
+            
+            classSubmissions.push({
+                studentId: submissionDoc.id,
+                studentName: studentData?.name || 'Unknown',
+                score: score.scored,
+                total: score.total,
+                percentage,
+                timeSpent: submission.timeSpent ? Math.round(submission.timeSpent / 60) : 0,
+                submittedAt: submission.submittedAt ? submission.submittedAt.toDate() : null
+            });
+        }
+        
+        const classAverage = totalMaxScore > 0 ? (totalScore / totalMaxScore) * 100 : 0;
+        const participationRate = classStudentIds.length > 0 ? (classSubmissions.length / classStudentIds.length) * 100 : 0;
+        
+        const excellent = classSubmissions.filter(s => s.percentage >= 90).length;
+        const good = classSubmissions.filter(s => s.percentage >= 70 && s.percentage < 90).length;
+        const average = classSubmissions.filter(s => s.percentage >= 50 && s.percentage < 70).length;
+        const needsHelp = classSubmissions.filter(s => s.percentage < 50).length;
+        
+        return {
+            examId,
+            examTitle: examData.title,
+            examSubject: examData.subject,
+            examDate: examData.startTime ? examData.startTime.toDate() : null,
+            duration: examData.duration,
+            totalStudents: classStudentIds.length,
+            submissions: classSubmissions.length,
+            participationRate: participationRate.toFixed(1),
+            classAverage: classAverage.toFixed(1),
+            excellent,
+            good,
+            average,
+            needsHelp,
+            topPerformers: classSubmissions.sort((a, b) => b.percentage - a.percentage).slice(0, 5)
+        };
+        
+    } catch (error) {
+        console.error('Error analyzing exam for class:', error);
+        return {
+            examId,
+            examTitle: examData.title,
+            error: error.message
+        };
+    }
+}
+
+function displayClassExamAnalytics(classData, examAnalytics) {
+    const container = document.getElementById('classExamAnalyticsContainer');
+    
+    let html = `
+        <div class="class-info" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+            <h3 style="margin: 0 0 8px 0; font-size: 20px;">${classData.name}</h3>
+            <p style="margin: 0; opacity: 0.9;">${classData.subject} • ${examAnalytics.length} Assigned Exams</p>
+        </div>
+    `;
+    
+    examAnalytics.forEach(analytics => {
+        if (analytics.error) {
+            html += `
+                <div class="exam-analytics-card" style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 20px;">
+                    <h4 style="color: #ef4444;">${analytics.examTitle} - Error</h4>
+                    <p style="color: #64748b;">${analytics.error}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        html += `
+            <div class="exam-analytics-card" style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <div>
+                        <h4 style="margin: 0 0 4px 0; color: #1e293b;">${analytics.examTitle}</h4>
+                        <p style="margin: 0; color: #64748b;">${analytics.examDate ? analytics.examDate.toLocaleDateString() : 'No date'} • ${analytics.duration} minutes</p>
+                    </div>
+                    <button class="btn btn-outline btn-sm" onclick="viewSubmissions('${analytics.examId}')">
+                        <i class="fas fa-eye"></i> View Details
+                    </button>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                    <div style="text-align: center; padding: 12px; background: #f8fafc; border-radius: 6px;">
+                        <div style="font-size: 18px; font-weight: 700; color: #3b82f6;">${analytics.submissions}</div>
+                        <div style="color: #64748b; font-size: 12px;">Submissions</div>
+                    </div>
+                    <div style="text-align: center; padding: 12px; background: #f8fafc; border-radius: 6px;">
+                        <div style="font-size: 18px; font-weight: 700; color: #8b5cf6;">${analytics.participationRate}%</div>
+                        <div style="color: #64748b; font-size: 12px;">Participation</div>
+                    </div>
+                    <div style="text-align: center; padding: 12px; background: #f8fafc; border-radius: 6px;">
+                        <div style="font-size: 18px; font-weight: 700; color: ${parseFloat(analytics.classAverage) >= 70 ? '#16a34a' : parseFloat(analytics.classAverage) >= 50 ? '#d97706' : '#ef4444'};">${analytics.classAverage}%</div>
+                        <div style="color: #64748b; font-size: 12px;">Class Average</div>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div>
+                        <h5 style="margin: 0 0 8px 0; color: #1e293b;">Performance Distribution</h5>
+                        <div style="display: grid; gap: 4px; font-size: 14px;">
+                            <div style="display: flex; justify-content: space-between; padding: 4px 8px; background: #dcfce7; border-radius: 4px;">
+                                <span style="color: #166534;">Excellent (≥90%)</span>
+                                <span style="font-weight: 600; color: #166534;">${analytics.excellent}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 4px 8px; background: #dbeafe; border-radius: 4px;">
+                                <span style="color: #1e40af;">Good (70-89%)</span>
+                                <span style="font-weight: 600; color: #1e40af;">${analytics.good}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 4px 8px; background: #fef3c7; border-radius: 4px;">
+                                <span style="color: #92400e;">Average (50-69%)</span>
+                                <span style="font-weight: 600; color: #92400e;">${analytics.average}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 4px 8px; background: #fee2e2; border-radius: 4px;">
+                                <span style="color: #991b1b;">Needs Help (<50%)</span>
+                                <span style="font-weight: 600; color: #991b1b;">${analytics.needsHelp}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h5 style="margin: 0 0 8px 0; color: #1e293b;">Top Performers</h5>
+                        <div style="font-size: 14px;">
+                            ${analytics.topPerformers.length === 0 ? 
+                                '<p style="color: #64748b; font-style: italic;">No submissions</p>' :
+                                analytics.topPerformers.map((student, index) => `
+                                    <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f1f5f9;">
+                                        <span>#${index + 1} ${student.studentName}</span>
+                                        <span style="font-weight: 600; color: ${student.percentage >= 90 ? '#16a34a' : student.percentage >= 70 ? '#2563eb' : '#d97706'};">${student.percentage.toFixed(1)}%</span>
+                                    </div>
+                                `).join('')
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}

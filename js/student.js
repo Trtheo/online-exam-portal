@@ -121,6 +121,11 @@ async function loadAvailableExams() {
     if (!currentUser) return;
     
     try {
+        // Get student's classes first
+        const userDoc = await db.collection('users').doc(currentUser.uid).get();
+        const userData = userDoc.data();
+        const studentClasses = userData.classes || [];
+        
         const snapshot = await db.collection('exams')
             .where('published', '==', true)
             .get();
@@ -129,6 +134,13 @@ async function loadAvailableExams() {
         
         for (const doc of snapshot.docs) {
             const exam = doc.data();
+            
+            // Check if student can access this exam
+            if (exam.isClassSpecific && exam.assignedClasses) {
+                const hasAccess = exam.assignedClasses.some(classId => studentClasses.includes(classId));
+                if (!hasAccess) continue; // Skip this exam
+            }
+            
             const hasSubmitted = userSubmissions.has(doc.id);
             const submission = userSubmissions.get(doc.id);
             
@@ -226,6 +238,7 @@ function createExamCard(examId, exam, hasSubmitted, submission = null) {
             <div>
                 <div class="exam-title">Exam Title: ${exam.title}</div>
                 <div class="exam-subject">Subject: ${exam.subject}</div>
+                ${exam.isClassSpecific ? '<div style="color: #667eea; font-size: 12px; font-weight: 500; margin-top: 4px;"><i class="fas fa-users"></i> Class Assignment</div>' : '<div style="color: #64748b; font-size: 12px; margin-top: 4px;"><i class="fas fa-globe"></i> All Students</div>'}
             </div>
             <div class="exam-status ${statusClass}">${statusText}</div>
         </div>
@@ -467,6 +480,10 @@ function hideOtherSections() {
     if (studentResultView) studentResultView.style.display = 'none';
     const myTranscriptView = document.getElementById('myTranscriptView');
     if (myTranscriptView) myTranscriptView.style.display = 'none';
+    const myClassesView = document.getElementById('myClassesView');
+    if (myClassesView) myClassesView.style.display = 'none';
+    const joinClassView = document.getElementById('joinClassView');
+    if (joinClassView) joinClassView.style.display = 'none';
 }
 
 function updateActiveNav(activeItem) {
@@ -603,6 +620,8 @@ function filterStudentLeaderboard() {
 
 function clearStudentLeaderboardFilters() {
     document.getElementById('leaderboardExamFilter').value = '';
+    document.getElementById('leaderboardClassFilter').value = '';
+    document.getElementById('leaderboardTypeFilter').value = 'all';
     const searchInput = document.getElementById('studentLeaderboardSearch');
     if (searchInput) {
         searchInput.value = '';
@@ -628,9 +647,15 @@ function displayStudentLeaderboardData(examResults) {
     let leaderboardHTML = '';
     examResults.forEach(exam => {
         if (exam.students.length > 0) {
+            const classIndicator = exam.classSpecific ? '<i class="fas fa-users" style="color: #667eea; margin-left: 8px;" title="Class-specific ranking"></i>' : '';
             leaderboardHTML += `
                 <div style="margin-bottom: 32px;">
-                    <h3 style="color: #1e293b; margin-bottom: 16px;">${exam.title} - ${exam.subject}</h3>
+                    <h3 style="color: #1e293b; margin-bottom: 8px; display: flex; align-items: center;">
+                        ${exam.title} - ${exam.subject}${classIndicator}
+                    </h3>
+                    <p style="color: #64748b; font-size: 14px; margin-bottom: 16px;">
+                        ${exam.classSpecific ? `Showing ${exam.students.length} classmates` : `Showing ${exam.students.length} students`}
+                    </p>
                     <div class="leaderboard-table">
                         <div class="leaderboard-header">
                             <div>Rank</div><div>Student</div><div>Score</div>
@@ -788,6 +813,19 @@ function showLeaderboard() {
             <div class="section-content">
                 <div class="filter-controls" style="margin-bottom: 24px;">
                     <div class="filter-group">
+                        <label class="filter-label">View Type</label>
+                        <select id="leaderboardTypeFilter" class="filter-select" onchange="loadStudentLeaderboard()">
+                            <option value="all">All Students</option>
+                            <option value="class">My Classes Only</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Filter by Class</label>
+                        <select id="leaderboardClassFilter" class="filter-select" onchange="loadStudentLeaderboard()">
+                            <option value="">All Classes</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
                         <label class="filter-label">Filter by Exam</label>
                         <select id="leaderboardExamFilter" class="filter-select" onchange="loadStudentLeaderboard()">
                             <option value="">All Exams</option>
@@ -815,8 +853,30 @@ function showLeaderboard() {
 async function loadStudentLeaderboard() {
     const container = document.getElementById('leaderboardContainer');
     const examFilter = document.getElementById('leaderboardExamFilter');
+    const classFilter = document.getElementById('leaderboardClassFilter');
+    const typeFilter = document.getElementById('leaderboardTypeFilter');
     
     try {
+        // Get student's classes
+        const userDoc = await db.collection('users').doc(currentUser.uid).get();
+        const userData = userDoc.data();
+        const studentClasses = userData.classes || [];
+        
+        // Load class filter options
+        if (classFilter && studentClasses.length > 0) {
+            const currentClassValue = classFilter.value;
+            classFilter.innerHTML = '<option value="">All Classes</option>';
+            
+            for (const classId of studentClasses) {
+                const classDoc = await db.collection('classes').doc(classId).get();
+                if (classDoc.exists) {
+                    const classData = classDoc.data();
+                    classFilter.innerHTML += `<option value="${classId}">${classData.name} - ${classData.subject}</option>`;
+                }
+            }
+            classFilter.value = currentClassValue;
+        }
+        
         const examSnapshot = await db.collection('exams')
             .where('published', '==', true)
             .get();
@@ -832,6 +892,8 @@ async function loadStudentLeaderboard() {
         }
         
         const selectedExamId = examFilter?.value || '';
+        const selectedClassId = classFilter?.value || '';
+        const viewType = typeFilter?.value || 'all';
         const examResults = [];
         
         for (const examDoc of examSnapshot.docs) {
@@ -847,17 +909,31 @@ async function loadStudentLeaderboard() {
                 const studentId = submissionDoc.id;
                 const submission = submissionDoc.data();
                 
-                const userDoc = await db.collection('users').doc(studentId).get();
-                const userData = userDoc.data();
+                const studentUserDoc = await db.collection('users').doc(studentId).get();
+                const studentUserData = studentUserDoc.data();
+                const studentUserClasses = studentUserData?.classes || [];
+                
+                // Filter by view type and class
+                if (viewType === 'class') {
+                    // Only show students from my classes
+                    const hasCommonClass = studentClasses.some(classId => studentUserClasses.includes(classId));
+                    if (!hasCommonClass && studentId !== currentUser.uid) continue;
+                }
+                
+                if (selectedClassId) {
+                    // Filter by specific class
+                    if (!studentUserClasses.includes(selectedClassId)) continue;
+                }
                 
                 const score = await calculateScore(examDoc.id, submission.answers);
                 const percentage = score.total > 0 ? (score.scored / score.total) * 100 : 0;
                 
                 examStudents.push({
-                    name: userData?.name || 'Unknown',
-                    email: userData?.email || '',
+                    name: studentUserData?.name || 'Unknown',
+                    email: studentUserData?.email || '',
                     score: percentage,
-                    isCurrentUser: studentId === currentUser.uid
+                    isCurrentUser: studentId === currentUser.uid,
+                    classes: studentUserClasses
                 });
             }
             
@@ -865,48 +941,22 @@ async function loadStudentLeaderboard() {
             examResults.push({
                 title: exam.title,
                 subject: exam.subject,
-                students: examStudents
+                students: examStudents,
+                classSpecific: selectedClassId || viewType === 'class'
             });
         }
         
-        if (examResults.length === 0) {
+        if (examResults.length === 0 || examResults.every(exam => exam.students.length === 0)) {
+            const message = viewType === 'class' ? 'No classmates found in leaderboard' : 'No data available';
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px;">
                     <i class="fas fa-trophy" style="font-size: 48px; margin-bottom: 16px;"></i>
-                    <h3>No data available</h3>
+                    <h3>${message}</h3>
+                    ${viewType === 'class' ? '<p>Complete exams with your classmates to see rankings</p>' : ''}
                 </div>
             `;
             return;
         }
-        
-        const rankIcons = ['<i class="fas fa-trophy" style="color: #ffd700;"></i>', '<i class="fas fa-medal" style="color: #c0c0c0;"></i>', '<i class="fas fa-award" style="color: #cd7f32;"></i>'];
-        
-        let leaderboardHTML = '';
-        examResults.forEach(exam => {
-            if (exam.students.length > 0) {
-                leaderboardHTML += `
-                    <div style="margin-bottom: 32px;">
-                        <h3 style="color: #1e293b; margin-bottom: 16px;">${exam.title} - ${exam.subject}</h3>
-                        <div class="leaderboard-table">
-                            <div class="leaderboard-header">
-                                <div>Rank</div><div>Student</div><div>Score</div>
-                            </div>
-                            ${exam.students.map((student, index) => {
-                                const rank = index < 3 ? rankIcons[index] : `#${index + 1}`;
-                                const highlight = student.isCurrentUser ? 'style="background: #f0f4ff; border: 2px solid #667eea;"' : '';
-                                return `
-                                    <div class="leaderboard-row" ${highlight}>
-                                        <div>${rank}</div>
-                                        <div>${student.name}${student.isCurrentUser ? ' (You)' : ''}</div>
-                                        <div>${student.score.toFixed(1)}%</div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-        });
         
         allStudentLeaderboardData = examResults;
         displayStudentLeaderboardData(examResults);
@@ -1005,6 +1055,207 @@ async function loadStudentResult(examId) {
     } catch (error) {
         console.error('Error loading student result:', error);
         container.innerHTML = `<p style="color: #ef4444;">Error loading result: ${error.message}</p>`;
+    }
+}
+
+function showMyClasses() {
+    hideAllSections();
+    updateActiveNav('My Classes');
+    
+    let classesView = document.getElementById('myClassesView');
+    if (!classesView) {
+        classesView = document.createElement('div');
+        classesView.id = 'myClassesView';
+        classesView.className = 'dashboard-section';
+        classesView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-chalkboard"></i> My Classes</h2>
+                <button class="btn btn-primary" onclick="showJoinClass()">
+                    <i class="fas fa-plus"></i> Join Class
+                </button>
+            </div>
+            <div class="section-content">
+                <div id="studentClassesContainer">Loading classes...</div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(classesView);
+    }
+    
+    classesView.style.display = 'block';
+    loadStudentClasses();
+}
+
+function showJoinClass() {
+    hideAllSections();
+    updateActiveNav('Join Class');
+    
+    let joinView = document.getElementById('joinClassView');
+    if (!joinView) {
+        joinView = document.createElement('div');
+        joinView.id = 'joinClassView';
+        joinView.className = 'dashboard-section';
+        joinView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-plus-circle"></i> Join Class</h2>
+                <button class="btn btn-outline" onclick="showMyClasses()"><i class="fas fa-arrow-left"></i> Back to Classes</button>
+            </div>
+            <div class="section-content">
+                <div style="max-width: 500px; margin: 0 auto; text-align: center;">
+                    <div style="background: white; padding: 40px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                        <i class="fas fa-key" style="font-size: 48px; color: #667eea; margin-bottom: 24px;"></i>
+                        <h3 style="margin: 0 0 16px 0; color: #1e293b;">Enter Class Code</h3>
+                        <p style="color: #64748b; margin-bottom: 24px;">Ask your teacher for the 6-character class code</p>
+                        
+                        <form id="joinClassForm">
+                            <div class="form-group" style="margin-bottom: 24px;">
+                                <input type="text" id="classCode" placeholder="Enter class code" 
+                                       style="width: 100%; padding: 16px; font-size: 18px; text-align: center; text-transform: uppercase; letter-spacing: 2px; font-weight: 600;" 
+                                       maxlength="6" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+                                <i class="fas fa-sign-in-alt"></i> Join Class
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(joinView);
+    }
+    
+    joinView.style.display = 'block';
+}
+
+async function loadStudentClasses() {
+    const container = document.getElementById('studentClassesContainer');
+    
+    try {
+        const userDoc = await db.collection('users').doc(currentUser.uid).get();
+        const userData = userDoc.data();
+        const studentClasses = userData.classes || [];
+        
+        if (studentClasses.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #64748b;">
+                    <i class="fas fa-chalkboard" style="font-size: 48px; margin-bottom: 16px;"></i>
+                    <h3 style="margin-bottom: 8px; color: #1e293b;">No classes joined yet</h3>
+                    <p>Join your first class using a class code from your teacher</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const classPromises = studentClasses.map(classId => 
+            db.collection('classes').doc(classId).get()
+        );
+        const classDocs = await Promise.all(classPromises);
+        
+        container.innerHTML = `
+            <div class="classes-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 24px;">
+                ${classDocs.map(doc => {
+                    if (!doc.exists) return '';
+                    const classData = doc.data();
+                    return `
+                        <div class="class-card" style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px;">
+                            <div style="margin-bottom: 16px;">
+                                <h3 style="margin: 0 0 8px 0; color: #1e293b; font-size: 18px;">${classData.name}</h3>
+                                <p style="margin: 0 0 8px 0; color: #667eea; font-weight: 600;">${classData.subject}</p>
+                                <p style="margin: 0; color: #64748b; font-size: 14px;">${classData.description || 'No description'}</p>
+                            </div>
+                            <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="color: #64748b; font-size: 14px;"><i class="fas fa-users"></i> ${classData.studentCount || 0} students</span>
+                                    <span style="color: #64748b; font-size: 14px;"><i class="fas fa-calendar"></i> Joined</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-primary btn-sm" onclick="viewClassExams('${doc.id}')">
+                                    <i class="fas fa-clipboard-list"></i> View Exams
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="leaveClass('${doc.id}')">
+                                    <i class="fas fa-sign-out-alt"></i> Leave
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+        
+    } catch (error) {
+        container.innerHTML = '<p style="color: #ef4444;">Error loading classes. Please refresh.</p>';
+    }
+}
+
+// Join class form handler
+document.addEventListener('submit', async (e) => {
+    if (e.target.id === 'joinClassForm') {
+        e.preventDefault();
+        
+        const classCode = document.getElementById('classCode').value.toUpperCase();
+        
+        try {
+            const classSnapshot = await db.collection('classes')
+                .where('classCode', '==', classCode)
+                .where('isActive', '==', true)
+                .get();
+            
+            if (classSnapshot.empty) {
+                showNotification('Invalid class code. Please check and try again.', 'error');
+                return;
+            }
+            
+            const classDoc = classSnapshot.docs[0];
+            const classId = classDoc.id;
+            
+            // Check if already joined
+            const userDoc = await db.collection('users').doc(currentUser.uid).get();
+            const userData = userDoc.data();
+            const currentClasses = userData.classes || [];
+            
+            if (currentClasses.includes(classId)) {
+                showNotification('You are already in this class!', 'error');
+                return;
+            }
+            
+            // Add student to class
+            await db.collection('users').doc(currentUser.uid).update({
+                classes: firebase.firestore.FieldValue.arrayUnion(classId)
+            });
+            
+            // Update class student count
+            await db.collection('classes').doc(classId).update({
+                studentCount: firebase.firestore.FieldValue.increment(1)
+            });
+            
+            showNotification('Successfully joined class!');
+            showMyClasses();
+            
+        } catch (error) {
+            showNotification('Error joining class: ' + error.message, 'error');
+        }
+    }
+});
+
+function viewClassExams(classId) {
+    showNotification('Class-specific exams feature coming soon!', 'info');
+}
+
+function leaveClass(classId) {
+    if (confirm('Are you sure you want to leave this class?')) {
+        db.collection('users').doc(currentUser.uid).update({
+            classes: firebase.firestore.FieldValue.arrayRemove(classId)
+        })
+        .then(() => {
+            db.collection('classes').doc(classId).update({
+                studentCount: firebase.firestore.FieldValue.increment(-1)
+            });
+            showNotification('Left class successfully!');
+            loadStudentClasses();
+        })
+        .catch(error => {
+            showNotification('Error leaving class: ' + error.message, 'error');
+        });
     }
 }
 

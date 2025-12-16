@@ -11,6 +11,36 @@ let suspiciousActivity = [];
 let tabSwitchCount = 0;
 let isFullScreen = false;
 
+// Reusable Modal System
+function createModal(id, title, content, buttons, options = {}) {
+    const modal = document.createElement('div');
+    modal.id = id;
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;';
+    
+    const width = options.width || '400px';
+    const maxHeight = options.maxHeight || '80vh';
+    const titleColor = options.danger ? '#ef4444' : '#1e293b';
+    const titleIcon = options.icon || '';
+    
+    modal.innerHTML = `
+        <div style="background: white; padding: 24px; border-radius: 12px; width: ${width}; max-width: 90vw; max-height: ${maxHeight}; overflow-y: auto;">
+            <h3 style="margin: 0 0 16px 0; color: ${titleColor};">${titleIcon ? `<i class="${titleIcon}"></i> ` : ''}${title}</h3>
+            <div style="margin-bottom: 20px;">${content}</div>
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                ${buttons}
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    return modal;
+}
+
+function hideModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) modal.remove();
+}
+
 const urlParams = new URLSearchParams(window.location.search);
 currentExamId = urlParams.get('examId');
 
@@ -36,8 +66,13 @@ async function loadExam() {
                 .doc(`${currentExamId}_${currentUser.uid}`).get();
             
             if (studentExamStatusDoc.exists && !studentExamStatusDoc.data().active) {
-                alert('This exam has been deactivated for you. Please contact your teacher.');
-                window.location.href = 'student-dashboard.html';
+                createModal(
+                    'errorModal',
+                    'Exam Deactivated',
+                    'This exam has been deactivated for you. Please contact your teacher.',
+                    '<button class="btn btn-primary" onclick="window.location.href=\'student-dashboard.html\'">Return to Dashboard</button>',
+                    { danger: true, icon: 'fas fa-ban' }
+                );
                 return;
             }
             
@@ -65,8 +100,13 @@ async function loadExam() {
             
             // Prevent access if exam is not live
             if (status !== 'LIVE') {
-                alert(`This exam is ${status}. You cannot take it at this time.`);
-                window.location.href = 'student-dashboard.html';
+                createModal(
+                    'statusModal',
+                    'Exam Not Available',
+                    `This exam is ${status}. You cannot take it at this time.`,
+                    '<button class="btn btn-primary" onclick="window.location.href=\'student-dashboard.html\'">Return to Dashboard</button>',
+                    { danger: true, icon: 'fas fa-clock' }
+                );
                 return;
             }
         } else {
@@ -74,8 +114,13 @@ async function loadExam() {
         }
     } catch (error) {
         console.error('Error loading exam:', error);
-        alert('Error loading exam: ' + error.message);
-        window.location.href = 'student-dashboard.html';
+        createModal(
+            'errorModal',
+            'Error Loading Exam',
+            'Error loading exam: ' + error.message,
+            '<button class="btn btn-primary" onclick="window.location.href=\'student-dashboard.html\'">Return to Dashboard</button>',
+            { danger: true, icon: 'fas fa-exclamation-circle' }
+        );
     }
 }
 
@@ -307,41 +352,58 @@ function startTimer() {
 }
 
 function submitExam() {
-    // Update summary
     const totalQuestions = questions.length;
     const answeredCount = Object.keys(answers).length;
     const unansweredCount = totalQuestions - answeredCount;
     
-    document.getElementById('totalQuestions').textContent = totalQuestions;
-    document.getElementById('answeredCount').textContent = answeredCount;
-    document.getElementById('unansweredCount').textContent = unansweredCount;
+    const content = `
+        <div style="text-align: center; margin-bottom: 16px;">
+            <p><strong>Total Questions:</strong> ${totalQuestions}</p>
+            <p><strong>Answered:</strong> ${answeredCount}</p>
+            <p><strong>Unanswered:</strong> ${unansweredCount}</p>
+        </div>
+        <p style="color: #ef4444; font-weight: 500;">Once submitted, you cannot change your answers.</p>
+    `;
     
-    // Show modal
-    document.getElementById('submitModal').classList.remove('hidden');
-}
-
-function hideSubmitModal() {
-    document.getElementById('submitModal').classList.add('hidden');
+    createModal(
+        'submitModal',
+        'Submit Exam',
+        content,
+        `<button class="btn btn-outline" onclick="hideModal('submitModal')">Review Answers</button>
+         <button class="btn btn-primary" onclick="confirmSubmit()">Submit Exam</button>`,
+        { icon: 'fas fa-paper-plane' }
+    );
 }
 
 function showFullscreenModal() {
-    document.getElementById('fullscreenModal').classList.remove('hidden');
-}
-
-function hideFullscreenModal() {
-    document.getElementById('fullscreenModal').classList.add('hidden');
+    createModal(
+        'fullscreenModal',
+        'Fullscreen Required',
+        'You must stay in fullscreen mode during the exam. The exam will automatically return to fullscreen in 2 seconds.',
+        '<button class="btn btn-primary" onclick="hideModal(\'fullscreenModal\'); forceFullscreen();">Return to Fullscreen</button>',
+        { danger: true, icon: 'fas fa-expand' }
+    );
 }
 
 function showSuccessModal() {
-    document.getElementById('successModal').classList.remove('hidden');
+    createModal(
+        'successModal',
+        'Exam Submitted Successfully',
+        'Your exam has been submitted successfully. You will be redirected to the dashboard shortly.',
+        '<button class="btn btn-primary" onclick="window.location.href=\'student-dashboard.html\'">Go to Dashboard</button>',
+        { icon: 'fas fa-check-circle' }
+    );
 }
 
 function showLeaveModal() {
-    document.getElementById('leaveModal').classList.remove('hidden');
-}
-
-function hideLeaveModal() {
-    document.getElementById('leaveModal').classList.add('hidden');
+    createModal(
+        'leaveModal',
+        'Leave Exam',
+        'Are you sure you want to leave the exam? Your progress will be lost and you cannot retake this exam.',
+        `<button class="btn btn-outline" onclick="hideModal('leaveModal')">Stay in Exam</button>
+         <button class="btn btn-danger" onclick="confirmLeave()">Leave Exam</button>`,
+        { danger: true, icon: 'fas fa-sign-out-alt' }
+    );
 }
 
 let shouldLeave = false;
@@ -351,7 +413,7 @@ function confirmLeave() {
 }
 
 async function confirmSubmit() {
-    hideSubmitModal();
+    hideModal('submitModal');
     clearInterval(examTimer);
     shouldLeave = true;
     
@@ -379,7 +441,13 @@ async function confirmSubmit() {
         }, 2000);
     } catch (error) {
         console.error('Error submitting exam:', error);
-        alert('Error submitting exam: ' + error.message);
+        createModal(
+            'errorModal',
+            'Submission Error',
+            'Error submitting exam: ' + error.message,
+            '<button class="btn btn-primary" onclick="hideModal(\'errorModal\')">Try Again</button>',
+            { danger: true, icon: 'fas fa-exclamation-circle' }
+        );
     }
 }
 
@@ -517,11 +585,13 @@ function cancelExam() {
 }
 
 function showRefreshModal() {
-    document.getElementById('refreshModal').classList.remove('hidden');
-}
-
-function hideRefreshModal() {
-    document.getElementById('refreshModal').classList.add('hidden');
+    createModal(
+        'refreshModal',
+        'Suspicious Activity Detected',
+        'Multiple tab switches or page refreshes detected. Please stay focused on the exam. Continued violations may result in automatic submission.',
+        '<button class="btn btn-primary" onclick="hideModal(\'refreshModal\')">Continue Exam</button>',
+        { danger: true, icon: 'fas fa-exclamation-triangle' }
+    );
 }
 
 function enterSecureMode() {
@@ -574,10 +644,3 @@ window.addEventListener('unload', () => {
     }
 });
 
-// Close modal when clicking outside
-document.addEventListener('click', (e) => {
-    const modal = document.getElementById('submitModal');
-    if (e.target === modal) {
-        hideSubmitModal();
-    }
-});
