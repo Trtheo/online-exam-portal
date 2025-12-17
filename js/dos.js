@@ -62,6 +62,9 @@ function showSection(sectionId) {
         case 'reports':
             loadReportStats();
             break;
+        case 'settings':
+            loadSettings();
+            break;
     }
 }
 
@@ -1869,5 +1872,51 @@ async function confirmTeacherStatusToggle(teacherId, newStatus) {
     } catch (error) {
         console.error('Error updating teacher status:', error);
         showToast('Error updating teacher status', 'error');
+    }
+}
+// Settings Functions
+async function loadSettings() {
+    try {
+        const settingsDoc = await db.collection('settings').doc('institution').get();
+        const settings = settingsDoc.data() || {};
+        
+        document.getElementById('institutionName').value = settings.name || '';
+        document.getElementById('academicYear').value = settings.academicYear || '';
+        document.getElementById('defaultDuration').value = settings.defaultDuration || 60;
+        
+    } catch (error) {
+        console.error('Error loading settings:', error);
+        // Set default values if error
+        document.getElementById('institutionName').value = 'ExamPortal Institution';
+        document.getElementById('academicYear').value = '2024-2025';
+        document.getElementById('defaultDuration').value = 60;
+    }
+}
+
+async function saveSettings() {
+    const institutionName = document.getElementById('institutionName').value;
+    const academicYear = document.getElementById('academicYear').value;
+    const defaultDuration = parseInt(document.getElementById('defaultDuration').value);
+    
+    if (!institutionName || !academicYear || !defaultDuration) {
+        showToast('Please fill all fields', 'error');
+        return;
+    }
+    
+    try {
+        await db.collection('settings').doc('institution').set({
+            name: institutionName,
+            academicYear: academicYear,
+            defaultDuration: defaultDuration,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: currentUser.uid
+        });
+        
+        await logActivity('settings_updated', 'Institution settings updated');
+        showToast('Settings saved successfully');
+        
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        showToast('Error saving settings', 'error');
     }
 }
