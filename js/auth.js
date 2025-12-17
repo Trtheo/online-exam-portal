@@ -198,6 +198,8 @@ document.getElementById('register').addEventListener('submit', async (e) => {
 function redirectToDashboard(role) {
     if (role === 'teacher') {
         window.location.href = 'teacher-dashboard.html';
+    } else if (role === 'dos') {
+        window.location.href = 'dos-dashboard.html';
     } else {
         window.location.href = 'student-dashboard.html';
     }

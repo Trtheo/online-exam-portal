@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DoS Dashboard - ExamPortal</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <header class="main-header">
+        <div class="header-content">
+            <div class="header-left">
+                <button class="hamburger-menu" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="logo">
+                    <i class="fas fa-graduation-cap"></i>
+                    ExamPortal - DoS
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="user-menu">
+                    <div class="user-avatar" id="userAvatar">D</div>
+                    <div>
+                        <div style="font-weight: 600; color: #1e293b;" id="userName">Loading...</div>
+                        <div style="font-size: 12px; color: #64748b;">Deputy of Studies</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <aside class="sidebar">
+        <nav class="sidebar-nav">
+            <ul>
+                <li><a href="#overview" class="active" onclick="showSection('overview')">
+                    <i class="nav-icon fas fa-chart-line"></i> Overview
+                </a></li>
+                <li><a href="#teachers" onclick="showSection('teachers')">
+                    <i class="nav-icon fas fa-chalkboard-teacher"></i> Teachers
+                </a></li>
+                <li><a href="#students" onclick="showSection('students')">
+                    <i class="nav-icon fas fa-users"></i> Students
+                </a></li>
+                <li><a href="#exams" onclick="showSection('exams')">
+                    <i class="nav-icon fas fa-clipboard-list"></i> Exam Approvals
+                </a></li>
+                <li><a href="#classes" onclick="showSection('classes')">
+                    <i class="nav-icon fas fa-chalkboard"></i> Class Management
+                </a></li>
+                <li><a href="#reports" onclick="showSection('reports')">
+                    <i class="nav-icon fas fa-chart-bar"></i> Reports
+                </a></li>
+                <li><a href="#settings" onclick="showSection('settings')">
+                    <i class="nav-icon fas fa-cog"></i> Settings
+                </a></li>
+                <li><a href="#logout" onclick="logout()">
+                    <i class="nav-icon fas fa-sign-out-alt"></i> Logout
+                </a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <div class="sidebar-overlay" onclick="closeSidebar()"></div>
+
+    <div class="container">
+        <div class="dashboard">
+            <!-- Overview Section -->
+            <section id="overview" class="content-section active" style="display: block;">
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon teachers">
+                            <i class="fas fa-chalkboard-teacher"></i>
+                        </div>
+                        <div class="stat-number" id="totalTeachers">0</div>
+                        <div class="stat-label">Total Teachers</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon students">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-number" id="totalStudents">0</div>
+                        <div class="stat-label">Total Students</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon submissions">
+                            <i class="fas fa-clipboard-list"></i>
+                        </div>
+                        <div class="stat-number" id="pendingExams">0</div>
+                        <div class="stat-label">Pending Approvals</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon exams">
+                            <i class="fas fa-play-circle"></i>
+                        </div>
+                        <div class="stat-number" id="activeExams">0</div>
+                        <div class="stat-label">Active Exams</div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-section">
+                    <div class="section-header">
+                        <h2 class="section-title"><i class="fas fa-clock"></i> Recent Activity</h2>
+                    </div>
+                    <div class="section-content">
+                        <div id="recentActivity" class="activity-list">
+                            <!-- Activity items will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Teachers Section -->
+            <section id="teachers" class="content-section" style="display: none;">
+                <div class="dashboard-section">
+                    <div class="section-header">
+                        <h2 class="section-title"><i class="fas fa-chalkboard-teacher"></i> Teacher Management</h2>
+                        <button onclick="showCreateTeacherModal()" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add Teacher
+                        </button>
+                    </div>
+                    <div class="section-content">
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Courses</th>
+                                        <th>Classes</th>
+                                        <th>IT Privileges</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="teachersTable">
+                                    <!-- Teachers will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Students Section -->
+            <section id="students" class="content-section" style="display: none;">
+                <div class="dashboard-section">
+                    <div class="section-header">
+                        <h2 class="section-title"><i class="fas fa-users"></i> Student Management</h2>
+                        <button onclick="showBulkStudentModal()" class="btn btn-primary">
+                            <i class="fas fa-upload"></i> Bulk Import
+                        </button>
+                    </div>
+                    <div class="section-content">
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Class</th>
+                                        <th>Exams Taken</th>
+                                        <th>Average Score</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="studentsTable">
+                                    <!-- Students will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Exam Approvals Section -->
+            <section id="exams" class="content-section" style="display: none;">
+                <div class="dashboard-section">
+                    <div class="section-header">
+                        <h2 class="section-title"><i class="fas fa-clipboard-list"></i> Exam Approval Queue</h2>
+                    </div>
+                    <div class="section-content">
+                        <div id="examApprovals" class="approval-list">
+                            <!-- Pending exams will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Reports Section -->
+            <section id="reports" class="content-section" style="display: none;">
+                <div class="dashboard-section">
+                    <div class="section-header">
+                        <h2 class="section-title"><i class="fas fa-chart-bar"></i> Institution Reports</h2>
+                        <div class="report-filters">
+                            <select id="reportPeriod" class="form-control">
+                                <option value="7">Last 7 days</option>
+                                <option value="30" selected>Last 30 days</option>
+                                <option value="90">Last 3 months</option>
+                                <option value="365">Last year</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="section-content">
+                        <div class="report-grid">
+                            <div class="report-card" onclick="generateReport('performance')">
+                                <div class="report-icon performance">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <div class="report-content">
+                                    <h3>Performance Report</h3>
+                                    <p>Student exam performance, scores, and analytics</p>
+                                    <div class="report-stats">
+                                        <span id="avgScore">0%</span> Average Score
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="report-card" onclick="generateReport('activity')">
+                                <div class="report-icon activity">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div class="report-content">
+                                    <h3>Activity Report</h3>
+                                    <p>System usage, logins, and exam activities</p>
+                                    <div class="report-stats">
+                                        <span id="totalActivities">0</span> Activities
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="report-card" onclick="generateReport('security')">
+                                <div class="report-icon security">
+                                    <i class="fas fa-shield-alt"></i>
+                                </div>
+                                <div class="report-content">
+                                    <h3>Security Report</h3>
+                                    <p>Security incidents, violations, and alerts</p>
+                                    <div class="report-stats">
+                                        <span id="securityIncidents">0</span> Incidents
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="report-card" onclick="generateReport('teachers')">
+                                <div class="report-icon teachers">
+                                    <i class="fas fa-chalkboard-teacher"></i>
+                                </div>
+                                <div class="report-content">
+                                    <h3>Teacher Report</h3>
+                                    <p>Teacher activities, exam creation, and engagement</p>
+                                    <div class="report-stats">
+                                        <span id="activeTeachers">0</span> Active Teachers
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="reportResults" class="report-results hidden">
+                            <!-- Report content will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Class Management Section -->
+            <section id="classes" class="content-section" style="display: none;">
+                <div class="dashboard-section">
+                    <div class="section-header">
+                        <h2 class="section-title"><i class="fas fa-chalkboard"></i> Class Management</h2>
+                        <button onclick="showAddClassModal()" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add Class
+                        </button>
+                    </div>
+                    <div class="section-content">
+                        <div id="classesContainer">Loading classes...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section id="settings" class="content-section" style="display: none;">
+                <div class="dashboard-section">
+                    <div class="section-header">
+                        <h2 class="section-title"><i class="fas fa-cog"></i> Institution Settings</h2>
+                    </div>
+                    <div class="section-content">
+                        <div class="settings-form">
+                            <div class="form-group">
+                                <label>Institution Name</label>
+                                <input type="text" id="institutionName">
+                            </div>
+                            <div class="form-group">
+                                <label>Academic Year</label>
+                                <input type="text" id="academicYear">
+                            </div>
+                            <div class="form-group">
+                                <label>Default Exam Duration (minutes)</label>
+                                <input type="number" id="defaultDuration">
+                            </div>
+                            <button onclick="saveSettings()" class="btn btn-primary">Save Settings</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+    <!-- Create Teacher Modal -->
+    <div id="createTeacherModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-plus"></i> Create Teacher Account</h3>
+                <button onclick="hideCreateTeacherModal()" class="close-btn">&times;</button>
+            </div>
+            <form id="createTeacherForm">
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Full Name</label>
+                            <input type="text" id="teacherName" required placeholder="Enter teacher's full name">
+                        </div>
+                        <div class="form-group">
+                            <label>Email Address</label>
+                            <input type="email" id="teacherEmail" required placeholder="teacher@example.com">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Temporary Password</label>
+                        <div class="password-input-container">
+                            <input type="password" id="teacherPassword" required placeholder="Minimum 6 characters">
+                            <i class="fas fa-eye password-toggle" onclick="togglePassword('teacherPassword')"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number</label>
+                        <input type="tel" id="teacherPhone" required placeholder="+250 XXX XXX XXX">
+                    </div>
+                    <div class="form-group">
+                        <label>Assign Classes</label>
+                        <div style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc;">
+                            <div id="classCheckboxes" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px;">
+                                <!-- Classes will be loaded here -->
+                            </div>
+                            <div id="selectedClassesDisplay" style="min-height: 30px; padding: 8px; background: white; border-radius: 6px; border: 1px dashed #d1d5db;">
+                                <small style="color: #9ca3af;">No classes selected</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Assign Courses</label>
+                        <div style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc;">
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 6px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                                    <input type="checkbox" class="course-checkbox" value="Mathematics"> Mathematics
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 6px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                                    <input type="checkbox" class="course-checkbox" value="Physics"> Physics
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 6px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                                    <input type="checkbox" class="course-checkbox" value="Chemistry"> Chemistry
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 6px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                                    <input type="checkbox" class="course-checkbox" value="Biology"> Biology
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 6px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                                    <input type="checkbox" class="course-checkbox" value="English"> English
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 6px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                                    <input type="checkbox" class="course-checkbox" value="History"> History
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 6px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                                    <input type="checkbox" class="course-checkbox" value="Geography"> Geography
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 6px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                                    <input type="checkbox" class="course-checkbox" value="Computer Science"> Computer Science
+                                </label>
+                            </div>
+                            <div id="selectedCoursesDisplay" style="min-height: 30px; padding: 8px; background: white; border-radius: 6px; border: 1px dashed #d1d5db;">
+                                <small style="color: #9ca3af;">No courses selected</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 12px; background: #f0f4ff; border-radius: 8px; border: 2px solid #c7d2fe;">
+                            <input type="checkbox" id="isITTeacher" style="width: 18px; height: 18px;">
+                            <div>
+                                <div style="font-weight: 600; color: #1e293b;">Grant IT Teacher Privileges</div>
+                                <small style="color: #64748b;">IT Teachers can create other teacher accounts and manage advanced features</small>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" onclick="hideCreateTeacherModal()" class="btn btn-outline">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-user-plus"></i> Create Teacher</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bulk Student Import Modal -->
+    <div id="bulkStudentModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Bulk Student Import</h3>
+                <button onclick="hideBulkStudentModal()" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Upload a CSV file with columns: Name, Email, StudentID</p>
+                <input type="file" id="studentCsvFile" accept=".csv" class="form-control">
+                <div class="modal-actions">
+                    <button onclick="hideBulkStudentModal()" class="btn btn-secondary">Cancel</button>
+                    <button onclick="processBulkStudents()" class="btn btn-primary">Import Students</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IT Privileges Modal -->
+    <div id="itPrivilegesModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="itModalTitle">Confirm IT Privileges</h3>
+                <button onclick="hideITModal()" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="itModalMessage">Are you sure you want to modify IT Teacher privileges?</p>
+            </div>
+            <div class="modal-footer">
+                <button onclick="hideITModal()" class="btn btn-outline">Cancel</button>
+                <button onclick="confirmITPrivileges()" class="btn btn-primary" id="itConfirmBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Class Modal -->
+    <div id="addClassModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-chalkboard"></i> Add New Class</h3>
+                <button onclick="hideAddClassModal()" class="close-btn">&times;</button>
+            </div>
+            <form id="addClassForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Class Name</label>
+                        <input type="text" id="className" required placeholder="e.g., S1, S2, S3">
+                    </div>
+                    <div class="form-group">
+                        <label>Description (Optional)</label>
+                        <input type="text" id="classDescription" placeholder="Brief description">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" onclick="hideAddClassModal()" class="btn btn-outline">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Add Class</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Logout Modal -->
+    <div id="logoutModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirm Logout</h3>
+                <button onclick="hideLogoutModal()" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to logout?</p>
+            </div>
+            <div class="modal-footer">
+                <button onclick="hideLogoutModal()" class="btn btn-outline">Cancel</button>
+                <button onclick="confirmLogout()" class="btn btn-danger">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/dos.js"></script>
+</body>
+</html>

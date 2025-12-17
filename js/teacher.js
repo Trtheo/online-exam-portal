@@ -66,6 +66,7 @@ auth.onAuthStateChanged(async (user) => {
             
             // Check if user is IT Teacher (admin)
             if (userData.isITTeacher) {
+                document.getElementById('classManagementNav').style.display = 'block';
                 document.getElementById('teacherManagementNav').style.display = 'block';
             }
             
@@ -1643,6 +1644,7 @@ async function createExam() {
         createdBy: currentUser.uid,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         published: false,
+        status: 'pending_approval',
         assignedClasses: selectedClasses,
         isClassSpecific: selectedClasses.length > 0
     };
@@ -1674,7 +1676,15 @@ async function createExam() {
         });
         await batch.commit();
         
-        showSuccessModal(`Exam created successfully with ${examQuestions.length} questions!`);
+        // Create exam approval request
+        await db.collection('exam_approvals').add({
+            examId: docRef.id,
+            teacherId: currentUser.uid,
+            status: 'pending',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        showSuccessModal(`Exam created and submitted for DoS approval with ${examQuestions.length} questions!`);
         setTimeout(() => {
             hideSuccessModal();
             hideCreateExam();
@@ -6588,4 +6598,331 @@ function displayClassExamAnalytics(classData, examAnalytics) {
     });
     
     container.innerHTML = html;
+}
+// IT Teacher Class Management Functions
+function showClassManagement() {
+    hideAllSections();
+    updateActiveNav('Class Management');
+    
+    let classView = document.getElementById('classManagementView');
+    if (!classView) {
+        classView = document.createElement('div');
+        classView.id = 'classManagementView';
+        classView.className = 'dashboard-section';
+        classView.innerHTML = `
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-chalkboard"></i> Class Management</h2>
+                <button class="btn btn-primary" onclick="showAddClassModal()">
+                    <i class="fas fa-plus"></i> Add Class
+                </button>
+            </div>
+            <div class="section-content">
+                <div id="classesContainer">Loading classes...</div>
+            </div>
+        `;
+        document.querySelector('.dashboard').appendChild(classView);
+    }
+    
+    classView.style.display = 'block';
+    loadClassManagement();
+}
+
+async function loadClassManagement() {
+    const container = document.getElementById('classesContainer');
+    
+    try {
+        const snapshot = await db.collection('settings').doc('classes').get();
+        const classesData = snapshot.data();
+        const classes = classesData ? classesData.list : [];
+        
+        if (classes.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-chalkboard" style="font-size: 48px; color: #cbd5e1; margin-bottom: 16px;"></i>
+                    <h3>No Classes Configured</h3>
+                    <p>Add classes to organize students and enable teacher assignments.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = `
+            <div class="class-grid">
+                ${classes.map(className => `
+                    <div class="class-card">
+                        <div class="class-header">
+                            <div class="class-icon">
+                                <i class="fas fa-chalkboard"></i>
+                            </div>
+                            <h3>${className}</h3>
+                        </div>
+                        <div class="class-stats">
+                            <div class="stat">
+                                <span class="stat-number" id="students-${className}">0</span>
+                                <span class="stat-label">Students</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number" id="teachers-${className}">0</span>
+                                <span class="stat-label">Teachers</span>
+                            </div>
+                        </div>
+                        <div class="class-actions">
+                            <button onclick="viewClassDetails('${className}')" class="btn btn-outline btn-sm">
+                                <i class="fas fa-eye"></i> View Details
+                            </button>
+                            <button onclick="removeClass('${className}')" class="btn btn-danger btn-sm">
+                                <i class="fas fa-trash"></i> Remove
+                            </button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        // Load stats for each class
+        for (const className of classes) {
+            loadClassStats(className);
+        }
+        
+    } catch (error) {
+        container.innerHTML = '<div class="error-state"><i class="fas fa-exclamation-triangle"></i><p>Error loading classes. Please refresh the page.</p></div>';
+    }
+}
+
+async function loadClassStats(className) {
+    try {
+        const [students, teachers] = await Promise.all([
+            db.collection('users').where('role', '==', 'student').where('class', '==', className).get(),
+            db.collection('users').where('role', '==', 'teacher').where('classes', 'array-contains', className).get()
+        ]);
+        
+        const studentElement = document.getElementById(`students-${className}`);
+        const teacherElement = document.getElementById(`teachers-${className}`);
+        
+        if (studentElement) studentElement.textContent = students.size;
+        if (teacherElement) teacherElement.textContent = teachers.size;
+    } catch (error) {
+        console.error(`Error loading stats for class ${className}:`, error);
+    }
+}
+
+function showAddClassModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-chalkboard"></i> Add New Class</h3>
+                <button onclick="this.closest('.modal').remove()" class="close-btn">&times;</button>
+            </div>
+            <form id="addClassForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Class Name</label>
+                        <input type="text" id="className" required placeholder="e.g., S1, S2, S3">
+                    </div>
+                    <div class="form-group">
+                        <label>Description (Optional)</label>
+                        <input type="text" id="classDescription" placeholder="Brief description">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" onclick="this.closest('.modal').remove()" class="btn btn-outline">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Add Class</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    modal.querySelector('#addClassForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const className = document.getElementById('className').value.trim();
+        const description = document.getElementById('classDescription').value.trim();
+        
+        if (!className) {
+            showNotification('Please enter a class name', 'error');
+            return;
+        }
+        
+        try {
+            // Get current classes
+            const snapshot = await db.collection('settings').doc('classes').get();
+            const classesData = snapshot.data();
+            const currentClasses = classesData ? classesData.list : [];
+            
+            // Check if class already exists
+            if (currentClasses.includes(className)) {
+                showNotification('Class already exists', 'error');
+                return;
+            }
+            
+            // Add new class
+            const updatedClasses = [...currentClasses, className];
+            
+            await db.collection('settings').doc('classes').set({
+                list: updatedClasses,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedBy: currentUser.uid
+            });
+            
+            // Log activity
+            await db.collection('activities').add({
+                type: 'class_added',
+                description: `Class "${className}" added by IT Teacher`,
+                userId: currentUser.uid,
+                userRole: 'teacher',
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            showNotification('Class added successfully!');
+            modal.remove();
+            loadClassManagement();
+            
+        } catch (error) {
+            console.error('Error adding class:', error);
+            showNotification('Error adding class', 'error');
+        }
+    });
+}
+
+async function removeClass(className) {
+    if (!confirm(`Are you sure you want to remove class "${className}"?`)) {
+        return;
+    }
+    
+    try {
+        // Get current classes
+        const snapshot = await db.collection('settings').doc('classes').get();
+        const classesData = snapshot.data();
+        const currentClasses = classesData ? classesData.list : [];
+        
+        // Remove class
+        const updatedClasses = currentClasses.filter(c => c !== className);
+        
+        await db.collection('settings').doc('classes').set({
+            list: updatedClasses,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: currentUser.uid
+        });
+        
+        // Log activity
+        await db.collection('activities').add({
+            type: 'class_removed',
+            description: `Class "${className}" removed by IT Teacher`,
+            userId: currentUser.uid,
+            userRole: 'teacher',
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        showNotification('Class removed successfully!');
+        loadClassManagement();
+        
+    } catch (error) {
+        console.error('Error removing class:', error);
+        showNotification('Error removing class', 'error');
+    }
+}
+
+function viewClassDetails(className) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-chalkboard"></i> Class ${className} Details</h3>
+                <button onclick="this.closest('.modal').remove()" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="class-details-tabs">
+                    <button class="tab-btn active" onclick="showClassTab('students', '${className}')">Students</button>
+                    <button class="tab-btn" onclick="showClassTab('teachers', '${className}')">Teachers</button>
+                </div>
+                <div id="classDetailsContent">Loading...</div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    showClassTab('students', className);
+}
+
+async function showClassTab(tab, className) {
+    const content = document.getElementById('classDetailsContent');
+    
+    // Update tab buttons
+    document.querySelectorAll('.class-details-tabs .tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    try {
+        if (tab === 'students') {
+            const students = await db.collection('users')
+                .where('role', '==', 'student')
+                .where('class', '==', className)
+                .get();
+            
+            if (students.empty) {
+                content.innerHTML = '<p class="no-data">No students assigned to this class</p>';
+                return;
+            }
+            
+            content.innerHTML = `
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Name</th><th>Email</th><th>Student ID</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                        ${students.docs.map(doc => {
+                            const student = doc.data();
+                            return `
+                                <tr>
+                                    <td>${student.name}</td>
+                                    <td>${student.email}</td>
+                                    <td>${student.studentId || 'N/A'}</td>
+                                    <td><span class="status-badge ${student.status || 'active'}">${student.status || 'Active'}</span></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            const teachers = await db.collection('users')
+                .where('role', '==', 'teacher')
+                .where('classes', 'array-contains', className)
+                .get();
+            
+            if (teachers.empty) {
+                content.innerHTML = '<p class="no-data">No teachers assigned to this class</p>';
+                return;
+            }
+            
+            content.innerHTML = `
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Name</th><th>Email</th><th>Courses</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                        ${teachers.docs.map(doc => {
+                            const teacher = doc.data();
+                            return `
+                                <tr>
+                                    <td>${teacher.name}</td>
+                                    <td>${teacher.email}</td>
+                                    <td>${teacher.courses ? teacher.courses.join(', ') : 'N/A'}</td>
+                                    <td><span class="status-badge ${teacher.status || 'active'}">${teacher.status || 'Active'}</span></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+    } catch (error) {
+        content.innerHTML = '<p class="error-message">Error loading data</p>';
+    }
 }

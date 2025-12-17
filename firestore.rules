@@ -1,56 +1,113 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users collection - users can read/write their own data
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      allow read: if request.auth != null && 
-        resource.data.role == 'teacher' || 
-        request.auth.uid == userId;
+    // Helper function to check user role
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
     
-    // Exams collection - teachers can create/edit, students can read
+    function isDoS() {
+      return request.auth != null && getUserRole() == 'dos';
+    }
+    
+    function isTeacher() {
+      return request.auth != null && getUserRole() == 'teacher';
+    }
+    
+    function isITTeacher() {
+      return request.auth != null && getUserRole() == 'teacher' && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isITTeacher == true;
+    }
+    
+    function isStudent() {
+      return request.auth != null && getUserRole() == 'student';
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == userId || 
+        isDoS() || 
+        isTeacher()
+      );
+      allow write: if request.auth != null && (
+        request.auth.uid == userId || 
+        isDoS() ||
+        (isTeacher() && !('isITTeacher' in request.resource.data))
+      );
+      allow create: if request.auth != null && (
+        request.auth.uid == userId || 
+        isDoS()
+      );
+    }
+    
+    // Exams collection
     match /exams/{examId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+      allow create: if isTeacher();
+      allow update: if isTeacher() && resource.data.createdBy == request.auth.uid || isDoS();
+      allow delete: if isTeacher() && resource.data.createdBy == request.auth.uid || isDoS();
+      
+      // Questions subcollection
+      match /questions/{questionId} {
+        allow read: if request.auth != null;
+        allow write: if isTeacher() || isDoS();
+      }
     }
     
-    // Questions collection - teachers can create/edit, students can read during exams
-    match /questions/{questionId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    // Exam approvals collection - DoS only
+    match /exam_approvals/{approvalId} {
+      allow read: if isDoS() || (isTeacher() && resource.data.teacherId == request.auth.uid);
+      allow write: if isDoS();
+      allow create: if isTeacher();
     }
     
-    // Submissions collection - students can create their own, teachers can read all
-    match /submissions/{submissionId} {
-      allow read: if request.auth != null && (
-        resource.data.studentId == request.auth.uid ||
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
-      );
-      allow create: if request.auth != null && 
-        request.resource.data.studentId == request.auth.uid;
-      allow update: if request.auth != null && (
-        resource.data.studentId == request.auth.uid ||
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
-      );
+    // Activities collection - DoS and IT Teachers
+    match /activities/{activityId} {
+      allow read, write: if isDoS();
+      allow create: if isITTeacher();
     }
     
-    // Results collection - students can read their own, teachers can read all
+    // DoS settings collection
+    match /dos_settings/{settingId} {
+      allow read, write: if isDoS();
+    }
+    
+    // Submissions collection
+    match /submissions/{examId} {
+      allow read: if isTeacher() || isDoS();
+      allow write: if isTeacher() || isDoS();
+      
+      match /students/{studentId} {
+        allow read: if request.auth.uid == studentId || isTeacher() || isDoS();
+        allow create: if request.auth.uid == studentId;
+        allow update: if request.auth.uid == studentId || isTeacher() || isDoS();
+      }
+    }
+    
+    // Results collection
     match /results/{resultId} {
-      allow read: if request.auth != null && (
-        resource.data.studentId == request.auth.uid ||
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
-      );
-      allow write: if request.auth != null && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+      allow read: if request.auth.uid == resource.data.studentId || isTeacher() || isDoS();
+      allow write: if isTeacher() || isDoS();
+    }
+    
+    // Classes collection
+    match /classes/{classId} {
+      allow read: if request.auth != null;
+      allow write: if isTeacher() && resource.data.teacherId == request.auth.uid || isDoS();
+      allow create: if isTeacher() || isDoS();
+    }
+    
+    // Settings collection (for classes and other settings)
+    match /settings/{settingId} {
+      allow read: if request.auth != null;
+      allow write: if isDoS() || isITTeacher();
+    }
+    
+    // Subjects collection
+    match /subjects/{subjectId} {
+      allow read: if request.auth != null;
+      allow write: if isTeacher() || isDoS();
     }
   }
 }
