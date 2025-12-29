@@ -3868,6 +3868,26 @@ textarea:hover {
     border: 1px solid #e0e0e0;
 }
 
+/* Profile modal language selector */
+.modal-body .language-flags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.modal-body .flag-btn {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    padding: 8px 12px;
+    font-size: 12px;
+}
+
+.modal-body .flag-btn.active {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    border-color: #0056b3;
+}
+
 /* Exam page language selector */
 .exam-header .language-selector {
     position: relative;

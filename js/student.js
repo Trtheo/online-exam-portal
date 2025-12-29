@@ -428,6 +428,13 @@ function showProfile() {
     
     profileView.style.display = 'block';
     loadProfileData();
+    
+    // Add language selector to profile
+    if (typeof languageManager !== 'undefined') {
+        setTimeout(() => {
+            languageManager.addLanguageSelectorToProfile();
+        }, 100);
+    }
 }
 
 async function loadProfileData() {

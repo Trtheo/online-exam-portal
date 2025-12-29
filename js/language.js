@@ -717,7 +717,7 @@ class LanguageManager {
     }
 
     init() {
-        // Force display language selector
+        // Always show language selector on login page
         const body = document.body;
         const selector = this.createLanguageSelector();
         selector.style.position = 'fixed';
@@ -729,6 +729,33 @@ class LanguageManager {
         // Set initial language
         document.documentElement.lang = this.currentLanguage === 'rw' ? 'rw' : this.currentLanguage === 'fr' ? 'fr' : this.currentLanguage === 'sw' ? 'sw' : 'en';
         this.updatePageContent();
+    }
+
+    addLanguageSelectorToProfile() {
+        const profileModal = document.querySelector('#profileModal .modal-body');
+        if (profileModal && !profileModal.querySelector('.language-selector')) {
+            const langSection = document.createElement('div');
+            langSection.innerHTML = `
+                <div class="form-group">
+                    <label>Language / Ururimi / Langue / Lugha</label>
+                    <div class="language-flags" style="margin-top: 8px;">
+                        <button class="flag-btn ${this.currentLanguage === 'en' ? 'active' : ''}" onclick="languageManager.setLanguage('en')" title="English">
+                            🇬🇧 ENG
+                        </button>
+                        <button class="flag-btn ${this.currentLanguage === 'rw' ? 'active' : ''}" onclick="languageManager.setLanguage('rw')" title="Kinyarwanda">
+                            🇷🇼 RW
+                        </button>
+                        <button class="flag-btn ${this.currentLanguage === 'fr' ? 'active' : ''}" onclick="languageManager.setLanguage('fr')" title="Français">
+                            🇫🇷 FR
+                        </button>
+                        <button class="flag-btn ${this.currentLanguage === 'sw' ? 'active' : ''}" onclick="languageManager.setLanguage('sw')" title="Kiswahili">
+                            🇰🇪 KISW
+                        </button>
+                    </div>
+                </div>
+            `;
+            profileModal.appendChild(langSection);
+        }
     }
 }
 
