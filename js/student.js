@@ -397,6 +397,23 @@ function showProfile() {
                                 <label>Confirm New Password</label>
                                 <input type="password" id="confirmPassword" placeholder="Confirm new password">
                             </div>
+                            <div class="form-group">
+                                <label>Language / Ururimi / Langue / Lugha</label>
+                                <div class="language-flags" style="margin-top: 8px;">
+                                    <button class="flag-btn ${this.currentLanguage === 'en' ? 'active' : ''}" onclick="languageManager.setLanguage('en')" title="English">
+                                        🇬🇧 ENG
+                                    </button>
+                                    <button class="flag-btn ${this.currentLanguage === 'rw' ? 'active' : ''}" onclick="languageManager.setLanguage('rw')" title="Kinyarwanda">
+                                        🇷🇼 RW
+                                    </button>
+                                    <button class="flag-btn ${this.currentLanguage === 'fr' ? 'active' : ''}" onclick="languageManager.setLanguage('fr')" title="Français">
+                                        🇫🇷 FR
+                                    </button>
+                                    <button class="flag-btn ${this.currentLanguage === 'sw' ? 'active' : ''}" onclick="languageManager.setLanguage('sw')" title="Kiswahili">
+                                        🇰🇪 KISW
+                                    </button>
+                                </div>
+                            </div>
                             <div class="profile-actions">
                                 <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Update Profile</button>
                                 <button type="button" class="btn btn-danger" onclick="deleteAccount()"><i class="fas fa-trash"></i> Delete Account</button>

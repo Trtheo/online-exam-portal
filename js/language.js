@@ -717,14 +717,18 @@ class LanguageManager {
     }
 
     init() {
-        // Always show language selector on login page
-        const body = document.body;
-        const selector = this.createLanguageSelector();
-        selector.style.position = 'fixed';
-        selector.style.top = '20px';
-        selector.style.right = '20px';
-        selector.style.zIndex = '9999';
-        body.appendChild(selector);
+        // Only show language selector on login page (fixed position)
+        const mainHeader = document.querySelector('.main-header .header-content');
+        if (!mainHeader) {
+            // Login page - show fixed position
+            const body = document.body;
+            const selector = this.createLanguageSelector();
+            selector.style.position = 'fixed';
+            selector.style.top = '20px';
+            selector.style.right = '20px';
+            selector.style.zIndex = '9999';
+            body.appendChild(selector);
+        }
         
         // Set initial language
         document.documentElement.lang = this.currentLanguage === 'rw' ? 'rw' : this.currentLanguage === 'fr' ? 'fr' : this.currentLanguage === 'sw' ? 'sw' : 'en';
