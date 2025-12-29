@@ -14,65 +14,65 @@
             <div class="auth-header">
                 <div class="logo-section">
                     <i class="fas fa-graduation-cap"></i>
-                    <h1>ExamPortal</h1>
-                    <p>Secure Online Examination System</p>
+                    <h1 data-translate="examPortal">ExamPortal</h1>
+                    <p data-translate="secureOnlineExamSystem">Secure Online Examination System</p>
                 </div>
             </div>
             
             <div class="auth-card">
                 <div class="auth-tabs">
-                    <button class="tab-btn active" onclick="showLogin()">Login</button>
-                    <button class="tab-btn" onclick="showRegister()">Register</button>
+                    <button class="tab-btn active" onclick="showLogin()" data-translate="login">Login</button>
+                    <button class="tab-btn" onclick="showRegister()" data-translate="register">Register</button>
                 </div>
                 
                 <!-- Login Form -->
                 <div id="loginForm" class="auth-form">
-                    <h2>Welcome Back</h2>
-                    <p class="form-subtitle">Sign in to your account</p>
+                    <h2 data-translate="welcomeBack">Welcome Back</h2>
+                    <p class="form-subtitle" data-translate="signInToAccount">Sign in to your account</p>
                     
                     <form id="login">
                         <div class="input-group">
                             <input type="email" id="loginEmail" placeholder=" " required>
-                            <label class="input-label">Email Address</label>
+                            <label class="input-label" data-translate="emailAddress">Email Address</label>
                         </div>
                         
                         <div class="input-group">
                             <input type="password" id="loginPassword" placeholder=" " required>
-                            <label class="input-label">Password</label>
+                            <label class="input-label" data-translate="password">Password</label>
                             <button type="button" class="password-toggle" onclick="togglePassword('loginPassword')">
                                 <i class="fas fa-eye" id="loginPasswordIcon"></i>
                             </button>
                         </div>
                         
                         <button type="submit" class="auth-btn">
-                            <i class="fas fa-sign-in-alt"></i> Sign In
+                            <i class="fas fa-sign-in-alt"></i> <span data-translate="signIn">Sign In</span>
                         </button>
                     </form>
                     
                     <div class="auth-links">
-                        <a href="#" onclick="showForgotPassword()">Forgot Password?</a>
+                        <a href="#" onclick="showForgotPassword()" data-translate="forgotPassword">Forgot Password?</a>
                     </div>
                 </div>
                 
                 <!-- Register Form -->
                 <div id="registerForm" class="auth-form hidden">
-                    <h2>Create Account</h2>
-                    <p class="form-subtitle">Join our examination platform</p>
+                    <h2 data-translate="createAccount">Create Account</h2>
+                    <p class="form-subtitle" data-translate="joinExamPlatform">Join our examination platform</p>
                     
                     <form id="register">
                         <div class="input-group">
                             <input type="text" id="registerName" placeholder=" " required>
-                            <label class="input-label">Full Name</label>
+                            <label class="input-label" data-translate="fullName">Full Name</label>
                         </div>
                         
                         <div class="input-group">
                             <input type="email" id="registerEmail" placeholder=" " required>
-                            <label class="input-label">Email Address</label>
+                            <label class="input-label" data-translate="emailAddress">Email Address</label>
                         </div>
                         
                         <div class="input-group">
                             <input type="password" id="registerPassword" placeholder=" " required>
-                            <label class="input-label">Password</label>
+                            <label class="input-label" data-translate="password">Password</label>
                             <button type="button" class="password-toggle" onclick="togglePassword('registerPassword')">
                                 <i class="fas fa-eye" id="registerPasswordIcon"></i>
                             </button>
@@ -81,36 +81,36 @@
                         <input type="hidden" id="registerRole" value="student">
                         
                         <button type="submit" class="auth-btn">
-                            <i class="fas fa-user-plus"></i> Create Account
+                            <i class="fas fa-user-plus"></i> <span data-translate="createAccount">Create Account</span>
                         </button>
                     </form>
                 </div>
                 
                 <!-- Forgot Password Form -->
                 <div id="forgotForm" class="auth-form hidden">
-                    <h2>Reset Password</h2>
-                    <p class="form-subtitle">Enter your email to receive reset instructions</p>
+                    <h2 data-translate="resetPassword">Reset Password</h2>
+                    <p class="form-subtitle" data-translate="enterEmailReset">Enter your email to receive reset instructions</p>
                     
                     <form id="forgot">
                         <div class="input-group">
                             <input type="email" id="forgotEmail" placeholder=" " required>
-                            <label class="input-label">Email Address</label>
+                            <label class="input-label" data-translate="emailAddress">Email Address</label>
                         </div>
                         
                         <button type="submit" class="auth-btn">
-                            <i class="fas fa-paper-plane"></i> Send Reset Link
+                            <i class="fas fa-paper-plane"></i> <span data-translate="sendResetLink">Send Reset Link</span>
                         </button>
                     </form>
                     
                     <div class="auth-links">
-                        <a href="#" onclick="showLogin()">Back to Login</a>
+                        <a href="#" onclick="showLogin()" data-translate="backToLogin">Back to Login</a>
                     </div>
                 </div>
             </div>
             
             <div class="auth-credits">
-                <p class="powered-by">Powered by <strong>BEST SCHOLARS</strong></p>
-                <p class="developer">Developed by <a href="https://visittheo.vercel.app/" target="_blank">Theophile Niyigaba <i class="fas fa-external-link-alt"></i></a></p>
+                <p class="powered-by"><span data-translate="poweredBy">Powered by</span> <strong>BEST SCHOLARS</strong></p>
+                <p class="developer"><span data-translate="developedBy">Developed by</span> <a href="https://visittheo.vercel.app/" target="_blank">Theophile Niyigaba <i class="fas fa-external-link-alt"></i></a></p>
             </div>
         </div>
     </div>
@@ -119,6 +119,15 @@
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="js/firebase-config.js"></script>
+    <script src="js/language.js"></script>
     <script src="js/auth.js"></script>
+    <script>
+        // Ensure language buttons appear
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof languageManager !== 'undefined') {
+                languageManager.init();
+            }
+        });
+    </script>
 </body>
 </html>

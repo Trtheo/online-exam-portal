@@ -9,6 +9,7 @@ A comprehensive web-based examination platform built with Firebase, featuring re
 - Role-based access (Student/Teacher)
 - Password reset with custom email templates
 - Secure user data management
+- **Multilingual Support**: English and Kinyarwanda language options
 
 ### Teacher Dashboard
 - **Exam Management**: Create, edit, delete exams with scheduling
@@ -43,6 +44,7 @@ A comprehensive web-based examination platform built with Firebase, featuring re
 - Optimized layouts for all screen sizes
 - Touch-friendly navigation
 - Professional UI with modern styling
+- **Language Selector**: Easy switching between English and Kinyarwanda
 
 ## Technology Stack
 
@@ -119,6 +121,7 @@ online-exam/
 ├── js/
 │   ├── firebase-config.js    # Firebase configuration
 │   ├── auth.js              # Authentication logic
+│   ├── language.js          # Multilingual support system
 │   ├── student.js           # Student dashboard
 │   ├── teacher.js           # Teacher dashboard
 │   ├── add-questions.js     # Question management
@@ -174,6 +177,23 @@ Visit the live demo: [ExamPortal Demo](https://online-exam-portal-zeta.vercel.ap
 **Test Credentials:**
 - Student Email: `student4@.com`    password = `password`
 - Teacher Email: `teacher@school.com`  password = `password`
+
+##  New Features
+
+### 🌍 Multilingual Support
+- **Dual Language System**: Complete support for English and Kinyarwanda
+- **Dynamic Language Switching**: Change language on any page without losing progress
+- **Persistent Language Preference**: Your language choice is saved locally
+- **Complete Translation**: All UI elements, buttons, and messages are translated
+- **Cultural Adaptation**: Proper Kinyarwanda translations that respect local context
+
+**How to Use:**
+1. Look for the language selector dropdown in the top-right corner of any page
+2. Select "English" or "Kinyarwanda" from the dropdown
+3. The entire interface will instantly switch to your chosen language
+4. Your preference is automatically saved for future visits
+
+**Demo Page**: Visit `language-demo.html` to see all translated elements in action.
 
 ##  Key Highlights
 

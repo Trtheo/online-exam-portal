@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Language Demo - ExamPortal</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .demo-container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .demo-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .demo-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+        .demo-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        .language-info {
+            background: #dbeafe;
+            border: 1px solid #3b82f6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-background">
+        <div class="demo-container">
+            <div class="demo-header">
+                <h1><i class="fas fa-graduation-cap"></i> <span data-translate="examPortal">ExamPortal</span></h1>
+                <p data-translate="secureOnlineExamSystem">Secure Online Examination System</p>
+                <div class="language-info">
+                    <h3><i class="fas fa-globe"></i> Multilingual Support</h3>
+                    <p>This system now supports both English and Kinyarwanda. Use the language selector above to switch between languages.</p>
+                </div>
+            </div>
+
+            <div class="demo-section">
+                <h3 data-translate="login">Login</h3>
+                <div class="demo-buttons">
+                    <button class="btn btn-primary" data-translate="signIn">Sign In</button>
+                    <button class="btn btn-outline" data-translate="register">Register</button>
+                    <button class="btn btn-outline" data-translate="forgotPassword">Forgot Password?</button>
+                </div>
+            </div>
+
+            <div class="demo-section">
+                <h3 data-translate="dashboard">Dashboard</h3>
+                <div class="demo-buttons">
+                    <button class="btn btn-primary" data-translate="availableExams">Available Exams</button>
+                    <button class="btn btn-outline" data-translate="myResults">My Results</button>
+                    <button class="btn btn-outline" data-translate="leaderboard">Leaderboard</button>
+                    <button class="btn btn-outline" data-translate="profile">Profile</button>
+                </div>
+            </div>
+
+            <div class="demo-section">
+                <h3 data-translate="examManagement">Exam Management</h3>
+                <div class="demo-buttons">
+                    <button class="btn btn-success" data-translate="createNewExam">Create New Exam</button>
+                    <button class="btn btn-outline" data-translate="manageQuestions">Manage Questions</button>
+                    <button class="btn btn-outline" data-translate="reports">Reports</button>
+                </div>
+            </div>
+
+            <div class="demo-section">
+                <h3 data-translate="examInterface">Exam Interface</h3>
+                <div class="demo-buttons">
+                    <button class="btn btn-primary" data-translate="startExam">Start Exam</button>
+                    <button class="btn btn-outline" data-translate="markForReview">Mark for Review</button>
+                    <button class="btn btn-outline" data-translate="clearResponse">Clear Response</button>
+                    <button class="btn btn-success" data-translate="submitExam">Submit Exam</button>
+                </div>
+            </div>
+
+            <div class="demo-section">
+                <h3 data-translate="questionTypes">Question Types</h3>
+                <div class="demo-buttons">
+                    <button class="btn btn-outline" data-translate="multipleChoice">Multiple Choice</button>
+                    <button class="btn btn-outline" data-translate="trueFalse">True/False</button>
+                    <button class="btn btn-outline" data-translate="shortAnswer">Short Answer</button>
+                </div>
+            </div>
+
+            <div class="demo-section">
+                <h3>Navigation</h3>
+                <div class="demo-buttons">
+                    <a href="index.html" class="btn btn-primary">Go to Login Page</a>
+                    <a href="student-dashboard.html" class="btn btn-outline">Student Dashboard</a>
+                    <a href="teacher-dashboard.html" class="btn btn-outline">Teacher Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/language.js"></script>
+</body>
+</html>

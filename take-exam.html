@@ -134,25 +134,25 @@
         <div class="prep-container">
             <div class="prep-header">
                 <i class="fas fa-shield-alt"></i>
-                <h2>Secure Exam Mode</h2>
+                <h2 data-translate="secureExamMode">Secure Exam Mode</h2>
             </div>
             <div class="prep-content">
-                <p>Before starting the exam, we need to enable secure mode to prevent cheating:</p>
+                <p data-translate="beforeStartingExam">Before starting the exam, we need to enable secure mode to prevent cheating:</p>
                 <ul class="security-features">
-                    <li><i class="fas fa-expand-arrows-alt"></i> Fullscreen mode (hides browser address bar)</li>
+                    <li><i class="fas fa-expand-arrows-alt"></i> <span data-translate="fullscreenMode">Fullscreen mode (hides browser address bar)</span></li>
                     <li><i class="fas fa-ban"></i> Disable copy/paste and screenshots</li>
                     <li><i class="fas fa-eye"></i> Monitor tab switching and suspicious activity</li>
                     <li><i class="fas fa-lock"></i> Prevent access to other applications</li>
                 </ul>
                 <div class="prep-warning">
                     <i class="fas fa-exclamation-triangle"></i>
-                    <p><strong>Important:</strong> Once you start, you cannot exit fullscreen mode until the exam is complete.</p>
+                    <p><strong data-translate="important">Important:</strong> <span data-translate="onceStartCannotExit">Once you start, you cannot exit fullscreen mode until the exam is complete.</span></p>
                 </div>
             </div>
             <div class="prep-actions">
-                <button class="btn btn-outline" onclick="window.location.href='student-dashboard.html'">Cancel</button>
+                <button class="btn btn-outline" onclick="window.location.href='student-dashboard.html'" data-translate="cancel">Cancel</button>
                 <button class="btn btn-primary btn-lg" onclick="enterSecureMode()">
-                    <i class="fas fa-play"></i> Start Secure Exam
+                    <i class="fas fa-play"></i> <span data-translate="startSecureExam">Start Secure Exam</span>
                 </button>
             </div>
         </div>
@@ -167,7 +167,7 @@
                 <h1 id="examTitle"><i class="fas fa-clipboard-check"></i> Loading Exam...</h1>
                 <div class="exam-meta">
                     <span id="examSubject"></span>
-                    <span id="questionProgress">Question 1 of 10</span>
+                    <span id="questionProgress" data-translate="questionProgress">Question 1 of 10</span>
                 </div>
             </div>
             <div class="exam-timer">
@@ -175,7 +175,7 @@
                     <i class="fas fa-clock"></i>
                     <div class="timer-display">
                         <div id="timer">00:00</div>
-                        <div class="timer-label">Time Remaining</div>
+                        <div class="timer-label" data-translate="timeRemaining">Time Remaining</div>
                     </div>
                 </div>
             </div>
@@ -183,7 +183,7 @@
         
         <!-- Fixed Cancel Button -->
         <button class="cancel-exam-btn" onclick="cancelExam()" title="Cancel Exam">
-            <i class="fas fa-times"></i> Cancel
+            <i class="fas fa-times"></i> <span data-translate="cancel">Cancel</span>
         </button>
     </header>
 
@@ -191,11 +191,11 @@
         <!-- Question Navigation Sidebar -->
         <nav class="question-sidebar">
             <div class="sidebar-header">
-                <h3><i class="fas fa-list"></i> Questions</h3>
+                <h3><i class="fas fa-list"></i> <span data-translate="questions">Questions</span></h3>
                 <div class="legend">
                     <div class="legend-item">
                         <span class="legend-dot answered"></span>
-                        <span>Answered</span>
+                        <span data-translate="answered">Answered</span>
                     </div>
                     <div class="legend-item">
                         <span class="legend-dot current"></span>
@@ -203,7 +203,7 @@
                     </div>
                     <div class="legend-item">
                         <span class="legend-dot unanswered"></span>
-                        <span>Unanswered</span>
+                        <span data-translate="notAnswered">Unanswered</span>
                     </div>
                 </div>
             </div>
@@ -223,21 +223,21 @@
             
             <div class="exam-controls">
                 <button class="btn btn-outline" id="prevBtn" onclick="previousQuestion()" disabled>
-                    <i class="fas fa-arrow-left"></i> Previous
+                    <i class="fas fa-arrow-left"></i> <span data-translate="previous">Previous</span>
                 </button>
                 <div class="control-center">
                     <button class="btn btn-outline" onclick="flagQuestion()" id="flagBtn">
-                        <i class="fas fa-flag"></i> Flag for Review
+                        <i class="fas fa-flag"></i> <span data-translate="markForReview">Flag for Review</span>
                     </button>
                     <button class="btn btn-outline" onclick="clearAnswer()">
-                        <i class="fas fa-eraser"></i> Clear Answer
+                        <i class="fas fa-eraser"></i> <span data-translate="clearResponse">Clear Answer</span>
                     </button>
                 </div>
                 <button class="btn btn-primary" id="nextBtn" onclick="nextQuestion()">
-                    Next <i class="fas fa-arrow-right"></i>
+                    <span data-translate="next">Next</span> <i class="fas fa-arrow-right"></i>
                 </button>
                 <button class="btn btn-success" id="submitBtn" onclick="submitExam()" style="display: none;">
-                    <i class="fas fa-paper-plane"></i> Submit Exam
+                    <i class="fas fa-paper-plane"></i> <span data-translate="submitExam">Submit Exam</span>
                 </button>
             </div>
         </main>
@@ -347,6 +347,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="js/firebase-config.js"></script>
+    <script src="js/language.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/take-exam.js"></script>
 </body>

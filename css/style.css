@@ -3753,3 +3753,99 @@ textarea:hover {
     margin: 0;
     color: #64748b;
 }
+/* Language Selector Styles */
+.language-selector {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.language-flags {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.flag-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid transparent;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 60px;
+    justify-content: center;
+}
+
+.flag-btn:hover {
+    background: rgba(255, 255, 255, 1);
+    border-color: #007bff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+}
+
+.flag-btn.active {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    border-color: #0056b3;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+    transform: translateY(-2px);
+    font-weight: 700;
+}
+
+.flag-btn.active:hover {
+    background: #0056b3;
+}
+
+/* Responsive language selector */
+@media (max-width: 768px) {
+    .language-selector {
+        top: 10px;
+        right: 10px;
+    }
+    
+    .language-flags {
+        gap: 4px;
+    }
+    
+    .flag-btn {
+        padding: 4px 6px;
+        font-size: 10px;
+        min-width: 45px;
+    }
+}
+
+/* Dashboard language selector */
+.main-header .language-selector {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin-left: auto;
+}
+
+.main-header .flag-btn {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+}
+
+/* Exam page language selector */
+.exam-header .language-selector {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin-left: 16px;
+}
+
+.exam-header .flag-btn {
+    background: rgba(255, 255, 255, 0.95);
+    font-size: 11px;
+    padding: 4px 8px;
+    min-width: 50px;
+}

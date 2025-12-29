@@ -15,14 +15,13 @@
             <button class="hamburger-menu" onclick="toggleSidebar()">
                 <i class="fas fa-bars"></i>
             </button>
-            <div class="logo"><i class="fas fa-graduation-cap"></i> ExamPortal</div>
+            <div class="logo"><i class="fas fa-graduation-cap"></i> <span data-translate="examPortal">ExamPortal</span></div>
             <div class="user-menu">
-                <div class="user-avatar" id="userAvatar">ST</div>
+                <div class="user-avatar" id="userAvatar">M</div>
                 <div>
-                    <div style="font-weight: 600; font-size: 14px;" id="studentName">Loading...</div>
-                    <div style="color: #64748b; font-size: 12px;">Student</div>
+                    <div style="font-weight: 600; font-size: 14px;" id="studentName">mihigo</div>
+                    <div style="color: #64748b; font-size: 12px;" data-translate="student">Umunyeshuri</div>
                 </div>
-
             </div>
         </div>
     </header>
@@ -33,14 +32,14 @@
     <!-- Sidebar -->
     <nav class="sidebar">
         <ul class="sidebar-nav">
-            <li><a href="#" class="active" onclick="showDashboard()"><i class="fas fa-home nav-icon"></i>Dashboard</a></li>
-            <li><a href="#" onclick="showAvailableExams()"><i class="fas fa-clipboard-list nav-icon"></i>Available Exams</a></li>
-            <li><a href="#" onclick="showMyClasses()"><i class="fas fa-chalkboard nav-icon"></i>My Classes</a></li>
-            <li><a href="#" onclick="showMyResults()"><i class="fas fa-chart-line nav-icon"></i>My Results</a></li>
-            <li><a href="#" onclick="showMyTranscript()"><i class="fas fa-graduation-cap nav-icon"></i>My Transcript</a></li>
-            <li><a href="#" onclick="showLeaderboard()"><i class="fas fa-trophy nav-icon"></i>Leaderboard</a></li>
-            <li><a href="#" onclick="showProfile()"><i class="fas fa-user nav-icon"></i>Profile</a></li>
-            <li><a href="#" onclick="logout()"><i class="fas fa-sign-out-alt nav-icon"></i>Logout</a></li>
+            <li><a href="#" class="active" onclick="showDashboard()"><i class="fas fa-home nav-icon"></i><span data-translate="dashboard">Dashboard</span></a></li>
+            <li><a href="#" onclick="showAvailableExams()"><i class="fas fa-clipboard-list nav-icon"></i><span data-translate="availableExams">Available Exams</span></a></li>
+            <li><a href="#" onclick="showMyClasses()"><i class="fas fa-chalkboard nav-icon"></i><span data-translate="myClasses">My Classes</span></a></li>
+            <li><a href="#" onclick="showMyResults()"><i class="fas fa-chart-line nav-icon"></i><span data-translate="myResults">My Results</span></a></li>
+            <li><a href="#" onclick="showMyTranscript()"><i class="fas fa-graduation-cap nav-icon"></i><span data-translate="myTranscript">My Transcript</span></a></li>
+            <li><a href="#" onclick="showLeaderboard()"><i class="fas fa-trophy nav-icon"></i><span data-translate="leaderboard">Leaderboard</span></a></li>
+            <li><a href="#" onclick="showProfile()"><i class="fas fa-user nav-icon"></i><span data-translate="profile">Profile</span></a></li>
+            <li><a href="#" onclick="logout()"><i class="fas fa-sign-out-alt nav-icon"></i><span data-translate="logout">Logout</span></a></li>
         </ul>
     </nav>
 
@@ -51,57 +50,57 @@
                 <div class="stat-card">
                     <div class="stat-icon exams"><i class="fas fa-clipboard-check"></i></div>
                     <div class="stat-number" id="completedExams">0</div>
-                    <div class="stat-label">Completed Exams</div>
+                    <div class="stat-label" data-translate="completedExams">Completed Exams</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon students"><i class="fas fa-clock"></i></div>
                     <div class="stat-number" id="pendingExams">0</div>
-                    <div class="stat-label">Pending Exams</div>
+                    <div class="stat-label" data-translate="pendingExams">Pending Exams</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon submissions"><i class="fas fa-percentage"></i></div>
                     <div class="stat-number" id="averageScore">0%</div>
-                    <div class="stat-label">Average Score</div>
+                    <div class="stat-label" data-translate="averageScore">Average Score</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon average"><i class="fas fa-trophy"></i></div>
                     <div class="stat-number" id="bestScore">0%</div>
-                    <div class="stat-label">Best Score</div>
+                    <div class="stat-label" data-translate="bestScore">Best Score</div>
                 </div>
             </div>
 
             <!-- Available Exams Section -->
             <div class="dashboard-section" id="examsSection">
                 <div class="section-header">
-                    <h2 class="section-title"><i class="fas fa-clipboard-list"></i> Available Exams</h2>
-                    <button class="btn btn-outline btn-xs" onclick="refreshExams()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                    <h2 class="section-title"><i class="fas fa-clipboard-list"></i> <span data-translate="availableExams">Available Exams</span></h2>
+                    <button class="btn btn-outline btn-xs" onclick="refreshExams()"><i class="fas fa-sync-alt"></i> <span data-translate="refresh">Refresh</span></button>
                 </div>
                 <div class="section-content">
                     <div class="filter-controls">
                         <div class="filter-group">
                             <label class="filter-label">Status</label>
                             <select id="examStatusFilter" class="filter-select" onchange="filterExams()">
-                                <option value="">All Exams</option>
+                                <option value="" data-translate="allExams">All Exams</option>
                                 <option value="available">Available</option>
-                                <option value="completed">Completed</option>
+                                <option value="completed" data-translate="completed">Completed</option>
                                 <option value="upcoming">Upcoming</option>
                             </select>
                         </div>
                         <div class="search-container">
                             <label class="filter-label">Search</label>
                             <div style="position: relative;">
-                                <input type="text" id="examSearch" class="search-input" placeholder="Search by title or subject..." onkeyup="searchExams()">
+                                <input type="text" id="examSearch" class="search-input" placeholder="Search by title or subject..." data-translate="searchByTitle" onkeyup="searchExams()">
                                 <button class="clear-search" onclick="clearSearch()" title="Clear search">
                                     <i class="fas fa-times"></i>
                                 </button>
                             </div>
                         </div>
                         <div class="filter-actions">
-                            <button class="btn btn-outline btn-xs" onclick="refreshExams()"><i class="fas fa-sync-alt"></i> Refresh</button>
-                            <button class="clear-filters" onclick="clearStudentFilters()"><i class="fas fa-times"></i> Clear</button>
+                            <button class="btn btn-outline btn-xs" onclick="refreshExams()"><i class="fas fa-sync-alt"></i> <span data-translate="refresh">Refresh</span></button>
+                            <button class="clear-filters" onclick="clearStudentFilters()"><i class="fas fa-times"></i> <span data-translate="clear">Clear</span></button>
                         </div>
                     </div>
-                    <div class="results-count" id="examResultsCount">Showing all exams</div>
+                    <div class="results-count" id="examResultsCount" data-translate="showingAllExams">Showing all exams</div>
                     <div id="examList" class="exam-grid">
                         <!-- Available exams will be loaded here -->
                     </div>
@@ -114,7 +113,7 @@
     <div id="notificationToast" class="notification-toast hidden">
         <div class="toast-content">
             <i class="fas fa-check-circle toast-icon"></i>
-            <span class="toast-message">Action completed successfully!</span>
+            <span class="toast-message" data-translate="loginSuccessful">Action completed successfully!</span>
         </div>
     </div>
     
@@ -122,14 +121,14 @@
     <div id="logoutModal" class="modal hidden">
         <div class="modal-content confirmation-modal">
             <div class="modal-header">
-                <h3><i class="fas fa-sign-out-alt"></i> Confirm Logout</h3>
+                <h3><i class="fas fa-sign-out-alt"></i> <span data-translate="logout">Confirm Logout</span></h3>
             </div>
             <div class="modal-body">
-                <p>Are you sure you want to logout?</p>
+                <p data-translate="confirmLogout">Are you sure you want to logout?</p>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-outline" onclick="hideLogoutModal()">Cancel</button>
-                <button class="btn btn-primary" onclick="confirmLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                <button class="btn btn-outline" onclick="hideLogoutModal()" data-translate="cancel">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmLogout()"><i class="fas fa-sign-out-alt"></i> <span data-translate="logout">Logout</span></button>
             </div>
         </div>
     </div>
@@ -138,14 +137,14 @@
     <div id="startExamModal" class="modal hidden">
         <div class="modal-content confirmation-modal">
             <div class="modal-header">
-                <h3><i class="fas fa-play-circle"></i> Start Exam</h3>
+                <h3><i class="fas fa-play-circle"></i> <span data-translate="startExam">Start Exam</span></h3>
             </div>
             <div class="modal-body">
                 <p>Are you sure you want to start this exam? You cannot pause or restart once you begin.</p>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-outline" onclick="hideStartExamModal()">Cancel</button>
-                <button class="btn btn-primary" onclick="confirmStartExam()" id="confirmStartBtn"><i class="fas fa-play"></i> Start Exam</button>
+                <button class="btn btn-outline" onclick="hideStartExamModal()" data-translate="cancel">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmStartExam()" id="confirmStartBtn"><i class="fas fa-play"></i> <span data-translate="startExam">Start Exam</span></button>
             </div>
         </div>
     </div>
@@ -186,6 +185,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="js/firebase-config.js"></script>
+    <script src="js/language.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/student.js"></script>
 </body>

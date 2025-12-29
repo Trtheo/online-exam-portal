@@ -21,14 +21,13 @@
             <button class="hamburger-menu" onclick="toggleSidebar()">
                 <i class="fas fa-bars"></i>
             </button>
-            <div class="logo"><i class="fas fa-graduation-cap"></i> ExamPortal</div>
+            <div class="logo"><i class="fas fa-graduation-cap"></i> <span data-translate="examPortal">ExamPortal</span></div>
             <div class="user-menu">
                 <div class="user-avatar" id="userAvatar">AT</div>
                 <div>
                     <div style="font-weight: 600; font-size: 14px;" id="teacherName">Loading...</div>
                     <div style="color: #64748b; font-size: 12px;">Teacher</div>
                 </div>
-
             </div>
         </div>
     </header>
@@ -39,17 +38,17 @@
     <!-- Sidebar -->
     <nav class="sidebar">
         <ul class="sidebar-nav">
-            <li><a href="#" class="active" onclick="showDashboard()"><i class="fas fa-home nav-icon"></i>Dashboard</a></li>
-            <li><a href="#" onclick="showCreateExam()"><i class="fas fa-plus nav-icon"></i>Create Exam</a></li>
+            <li><a href="#" class="active" onclick="showDashboard()"><i class="fas fa-home nav-icon"></i><span data-translate="dashboard">Dashboard</span></a></li>
+            <li><a href="#" onclick="showCreateExam()"><i class="fas fa-plus nav-icon"></i><span data-translate="createExam">Create Exam</span></a></li>
             <li><a href="#" onclick="showExamList()"><i class="fas fa-list nav-icon"></i>My Exams</a></li>
             <li><a href="#" onclick="showClassManagement()"><i class="fas fa-chalkboard nav-icon"></i>My Classes</a></li>
-            <li><a href="#" onclick="showReportsCenter()"><i class="fas fa-chart-line nav-icon"></i>Reports Center</a></li>
+            <li><a href="#" onclick="showReportsCenter()"><i class="fas fa-chart-line nav-icon"></i><span data-translate="reports">Reports</span></a></li>
             <li><a href="#" onclick="showStudentManagement()"><i class="fas fa-users-cog nav-icon"></i>Manage Students</a></li>
             <li><a href="#" onclick="showVerificationCenter()"><i class="fas fa-shield-alt nav-icon"></i>Verify Transcript</a></li>
             <li><a href="#" onclick="showClassManagement()" id="classManagementNav" style="display: none;"><i class="fas fa-chalkboard nav-icon"></i>Class Management</a></li>
             <li><a href="#" onclick="showTeacherManagement()" id="teacherManagementNav" style="display: none;"><i class="fas fa-chalkboard-teacher nav-icon"></i>Manage Teachers</a></li>
-            <li><a href="#" onclick="showProfile()"><i class="fas fa-user nav-icon"></i>Profile</a></li>
-            <li><a href="#" onclick="logout()"><i class="fas fa-sign-out-alt nav-icon"></i>Logout</a></li>
+            <li><a href="#" onclick="showProfile()"><i class="fas fa-user nav-icon"></i><span data-translate="profile">Profile</span></a></li>
+            <li><a href="#" onclick="logout()"><i class="fas fa-sign-out-alt nav-icon"></i><span data-translate="logout">Logout</span></a></li>
         </ul>
     </nav>
 
@@ -87,7 +86,7 @@
                 <div class="section-content">
                     <div style="display: flex; gap: 16px; flex-wrap: wrap;">
                         <button class="btn btn-primary btn-lg" onclick="showCreateExam()">
-                            <i class="fas fa-plus"></i> Create New Exam
+                            <i class="fas fa-plus"></i> <span data-translate="createNewExam">Create New Exam</span>
                         </button>
                         <button class="btn btn-outline btn-lg" onclick="showExamList()">
                             <i class="fas fa-list"></i> View All Exams
@@ -105,8 +104,8 @@
             <!-- Create Exam Section -->
             <div id="createExamSection" class="dashboard-section hidden">
                 <div class="section-header">
-                    <h2 class="section-title"><i class="fas fa-plus-circle"></i> Create New Exam</h2>
-                    <button class="btn btn-outline" onclick="hideCreateExam()"><i class="fas fa-arrow-left"></i> Back to Dashboard</button>
+                    <h2 class="section-title"><i class="fas fa-plus-circle"></i> <span data-translate="createNewExam">Create New Exam</span></h2>
+                    <button class="btn btn-outline" onclick="hideCreateExam()"><i class="fas fa-arrow-left"></i> <span data-translate="back">Back to Dashboard</span></button>
                 </div>
                 <div class="section-content">
                     <form id="examForm" class="exam-creation-form">
@@ -114,7 +113,7 @@
                             <h3>Exam Details</h3>
                             <div class="form-grid">
                                 <div class="form-group">
-                                    <label>Exam Title</label>
+                                    <label data-translate="examTitle">Exam Title</label>
                                     <input type="text" id="examTitle" placeholder="e.g., Mathematics Final Exam" required>
                                 </div>
                                 <div class="form-group">
@@ -124,22 +123,20 @@
                                             <option value="">Select Subject</option>
                                         </select>
                                         <button type="button" class="btn btn-outline btn-sm" onclick="showAddSubjectModal()" style="white-space: nowrap;">
-                                            <i class="fas fa-plus"></i> Add New
+                                            <i class="fas fa-plus"></i> <span data-translate="add">Add New</span>
                                         </button>
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label>Duration (minutes)</label>
+                                    <label data-translate="duration">Duration (minutes)</label>
                                     <input type="number" id="examDuration" placeholder="60" min="1" required>
                                 </div>
                                 <div class="form-group">
-                                    <label>                               
-                                    Start Date & Time
-                                    </label>
+                                    <label data-translate="startTime">Start Date & Time</label>
                                     <input type="datetime-local" id="examStartTime" required>
                                 </div>
                                 <div class="form-group">
-                                    <label>End Date & Time</label>
+                                    <label data-translate="endTime">End Date & Time</label>
                                     <input type="datetime-local" id="examEndTime" required>
                                 </div>
                                 <div class="form-group full-width">
@@ -159,11 +156,11 @@
                         
                         <div class="questions-section">
                             <div class="questions-header">
-                                <h3>Questions</h3>
+                                <h3 data-translate="questions">Questions</h3>
                                 <div class="question-actions">
                                     <button type="button" class="btn btn-primary" onclick="addQuestion('mcq')"><i class="fas fa-plus"></i> Add MCQ</button>
                                     <button type="button" class="btn btn-outline" onclick="addQuestion('tf')"><i class="fas fa-plus"></i> Add True/False</button>
-                                    <button type="button" class="btn btn-outline" onclick="addQuestion('short')"><i class="fas fa-plus"></i> Add Short Answer</button>
+                                    <button type="button" class="btn btn-outline" onclick="addQuestion('short')"><i class="fas fa-plus"></i> <span data-translate="shortAnswer">Add Short Answer</span></button>
                                 </div>
                             </div>
                             <div id="questionsList" class="questions-list">
@@ -175,8 +172,8 @@
                         </div>
                         
                         <div class="form-actions">
-                            <button type="button" class="btn btn-outline" onclick="hideCreateExam()">Cancel</button>
-                            <button type="button" class="btn btn-success btn-lg" onclick="createExam()"><i class="fas fa-save"></i> Create Exam</button>
+                            <button type="button" class="btn btn-outline" onclick="hideCreateExam()" data-translate="cancel">Cancel</button>
+                            <button type="button" class="btn btn-success btn-lg" onclick="createExam()"><i class="fas fa-save"></i> <span data-translate="createExam">Create Exam</span></button>
                         </div>
                     </form>
                     
@@ -458,6 +455,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
     <script src="js/firebase-config.js"></script>
+    <script src="js/language.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/teacher.js"></script>
     

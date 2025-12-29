@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Language Test</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div style="padding: 50px;">
+        <h1 data-translate="examPortal">ExamPortal</h1>
+        <p data-translate="welcomeBack">Welcome Back</p>
+        <button data-translate="login">Login</button>
+    </div>
+    
+    <script>
+        // Simple inline language manager for testing
+        window.languageManager = {
+            setLanguage: function(lang) {
+                console.log('Language changed to:', lang);
+                alert('Language changed to: ' + lang);
+            }
+        };
+        
+        // Create language buttons directly
+        const langDiv = document.createElement('div');
+        langDiv.style.position = 'fixed';
+        langDiv.style.top = '20px';
+        langDiv.style.right = '20px';
+        langDiv.style.zIndex = '9999';
+        langDiv.innerHTML = `
+            <div style="display: flex; gap: 8px;">
+                <button onclick="languageManager.setLanguage('en')" style="padding: 6px 10px; background: #007bff; color: white; border: none; border-radius: 4px;">🇬🇧 ENG</button>
+                <button onclick="languageManager.setLanguage('rw')" style="padding: 6px 10px; background: white; color: #333; border: 1px solid #ddd; border-radius: 4px;">🇷🇼 RW</button>
+                <button onclick="languageManager.setLanguage('fr')" style="padding: 6px 10px; background: white; color: #333; border: 1px solid #ddd; border-radius: 4px;">🇫🇷 FR</button>
+                <button onclick="languageManager.setLanguage('sw')" style="padding: 6px 10px; background: white; color: #333; border: 1px solid #ddd; border-radius: 4px;">🇰🇪 KISW</button>
+            </div>
+        `;
+        document.body.appendChild(langDiv);
+    </script>
+    <script src="js/language.js"></script>
+</body>
+</html>
